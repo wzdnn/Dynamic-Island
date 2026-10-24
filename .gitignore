@@ -1,0 +1,7 @@
+# Local stable-version archives and private environment settings
+/backups/
+.env
+.env.*
+*.log
+*.tmp.ps1
+/panel-*-test.png
