@@ -1,6 +1,6 @@
 # Dynamic Island for Windows
 
-Prototipe desktop dengan tampilan terinspirasi iPhone. Jalankan `Start Island.cmd`.
+Prototipe desktop dengan tampilan terinspirasi iPhone. Jalankan `Start Island.vbs`.
 Tidak membutuhkan paket tambahan, administrator, atau perubahan execution policy permanen.
 Hanya satu instance berjalan per akun/sesi Windows. Membuka launcher lagi langsung keluar
 tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses berakhir.
@@ -8,7 +8,9 @@ tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses be
 ## Menjalankan
 
 1. Unduh ZIP repository ini atau clone dengan Git, lalu ekstrak ke folder tetap.
-2. Jalankan `Start Island.cmd` pada Windows. Launcher menggunakan **Windows PowerShell 5.1**
+2. Klik dua kali `Start Island.vbs` untuk menjalankan tanpa jendela terminal. `Start Island.cmd`
+   juga tersedia dan meneruskan ke launcher yang sama, tetapi jendela CMD dapat muncul sesaat.
+   Launcher memakai Windows Script Host dan **Windows PowerShell 5.1**
    dan WPF bawaan Windows; menjalankan skrip melalui PowerShell 7 tidak didukung.
 3. Klik pil untuk membuka panel. Klik kanan lalu pilih **Keluar Dynamic Island** untuk menutup.
 
@@ -18,7 +20,7 @@ Tidak diperlukan instalasi .NET SDK atau paket tambahan.
 
 ## Startup opsional
 
-Buat shortcut ke `Start Island.cmd`, lalu letakkan shortcut tersebut dalam folder Startup
+Buat shortcut ke `Start Island.vbs`, lalu letakkan shortcut tersebut dalam folder Startup
 pengguna (buka `shell:startup` lewat Run). Aplikasi kemudian berjalan setelah login Windows.
 Jangan memindahkan folder proyek tanpa memperbarui shortcut. Hapus shortcut untuk
 menonaktifkan startup; tindakan ini tidak menghapus aplikasi. Shortcut dan pengaturan
@@ -28,6 +30,11 @@ Windows lokal tidak disertakan dalam repository.
 
 - Pil hitam di tengah atas area kerja monitor utama, di atas jendela biasa.
 - Klik untuk membuka kontrol media; Escape untuk mengecilkan.
+- Buka/tutup memakai transisi tinggi dan fade isi panel; klik cepat melanjutkan dari
+  posisi animasi saat itu. Jika animasi Windows dimatikan, panel berubah langsung.
+- Judul panjang di panel terbuka bergulir perlahan bolak-balik dengan jeda di kedua ujung.
+  Judul pendek tetap diam; guliran berhenti saat panel ditutup atau notifikasi tampil.
+  Pengaturan animasi Windows juga berlaku untuk guliran; tooltip tetap memuat judul lengkap.
 - Jam diperbarui setiap detik; baterai dibaca setiap 30 detik.
 - Kontrol media mengirim tombol multimedia Windows ke aplikasi yang menanganinya.
 - Pil kecil menampilkan cover, judul lagu, serta tombol previous, play/pause, dan next.
@@ -47,10 +54,15 @@ Windows lokal tidak disertakan dalam repository.
 - Panel terbuka menyediakan slider **Volume aplikasi** 0–100%. Klik/geser lalu lepaskan,
   atau gunakan keyboard, untuk mengubah volume sesi aplikasi musik di mixer Windows.
   Ini tidak mengubah master volume laptop atau slider internal Spotify. Nilai 0 membisukan
-  sesi; nilai di atas 0 mengaktifkan suaranya kembali. Volume disinkronkan setiap detik saat
+  sesi; nilai di atas 0 mengaktifkan suaranya kembali. YouTube di Brave didukung lewat volume
+  aplikasi Brave; tab Brave lain yang bersuara ikut terpengaruh, bukan hanya tab YouTube.
+  Volume disinkronkan setiap detik saat
   panel terbuka. Dukungan saat ini untuk sumber media beridentitas executable (teruji:
-  `Spotify.exe`) pada perangkat keluaran multimedia default. Jika sesi tidak ditemukan,
+  `Spotify.exe`) serta identitas media `Brave` pada perangkat keluaran multimedia default. Jika sesi tidak ditemukan,
   kontrol dinonaktifkan. Perutean audio aplikasi ke perangkat lain belum didukung.
+- Bagian progres yang terisi memakai warna rata-rata cover yang dibuat lebih lembut dan
+  terang. Warna dihitung sekali saat cover berubah; tanpa cover valid, progres kembali
+  netral. Slider volume dan latar pil tetap memakai warna semula.
 - Panel terbuka menampilkan posisi/durasi dan slider lagu. Klik atau geser slider lalu
   lepaskan untuk seek; keyboard panah, Home/End, dan Page Up/Down juga didukung.
   Posisi bergerak mengikuti timeline Windows saat playing dan berhenti saat pause.

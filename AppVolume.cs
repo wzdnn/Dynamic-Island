@@ -50,6 +50,7 @@ public static class AppVolume
     }
 
     public static string ProcessName(string source) {
+        if (String.Equals(source, "Brave", StringComparison.OrdinalIgnoreCase)) return "brave";
         return !String.IsNullOrEmpty(source) && source.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
             ? Path.GetFileNameWithoutExtension(source) : null;
     }

@@ -28,19 +28,61 @@ function Get-BatteryLabel {
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Dynamic Island" Width="420" Height="340" WindowStyle="None"
         AllowsTransparency="True" Background="Transparent" Topmost="True"
-        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="Manual">
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="Manual" UseLayoutRounding="True">
  <Window.Resources>
+  <PathGeometry x:Key="PlayIcon">M 5,2 L 17,10 5,18 Z</PathGeometry>
+  <PathGeometry x:Key="PauseIcon">M 4,3 H 8 V 17 H 4 Z M 12,3 H 16 V 17 H 12 Z</PathGeometry>
+  <PathGeometry x:Key="PreviousIcon">M 3,3 H 6 V 17 H 3 Z M 17,3 L 7,10 17,17 Z</PathGeometry>
+  <PathGeometry x:Key="NextIcon">M 14,3 H 17 V 17 H 14 Z M 3,3 L 13,10 3,17 Z</PathGeometry>
+  <DataTemplate x:Key="MediaIconTemplate">
+   <Grid Width="20" Height="20"><Path Data="{Binding}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/></Grid>
+  </DataTemplate>
+  <Style x:Key="SliderRail" TargetType="RepeatButton">
+   <Setter Property="Focusable" Value="False"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton">
+    <Grid Background="Transparent"><Border Height="4" CornerRadius="2" Background="{TemplateBinding Background}" VerticalAlignment="Center"/></Grid>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="Slider">
+   <Setter Property="Height" Value="28"/>
+   <Setter Property="Foreground" Value="#E5E5E9"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+    <Grid x:Name="SliderChrome" Background="Transparent">
+     <Border x:Name="FocusRing" BorderBrush="#ADFF6B" BorderThickness="1" CornerRadius="7" Opacity="0"/>
+     <Border Height="4" Margin="12,0" CornerRadius="2" Background="#343439" IsHitTestVisible="False"/>
+     <Track x:Name="PART_Track">
+      <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource SliderRail}" Background="{TemplateBinding Foreground}" Command="Slider.DecreaseLarge"/></Track.DecreaseRepeatButton>
+      <Track.Thumb><Thumb Width="24" Height="28">
+       <Thumb.Template><ControlTemplate TargetType="Thumb">
+        <Grid Background="Transparent"><Ellipse x:Name="Dot" Width="10" Height="10" Fill="#F5F5F7"/>
+        </Grid>
+        <ControlTemplate.Triggers>
+         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Dot" Property="Fill" Value="#ADFF6B"/></Trigger>
+         <Trigger Property="IsDragging" Value="True"><Setter TargetName="Dot" Property="Fill" Value="#ADFF6B"/></Trigger>
+        </ControlTemplate.Triggers>
+       </ControlTemplate></Thumb.Template>
+      </Thumb></Track.Thumb>
+      <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource SliderRail}" Background="#343439" Command="Slider.IncreaseLarge"/></Track.IncreaseRepeatButton>
+     </Track>
+    </Grid>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="FocusRing" Property="Opacity" Value="1"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="SliderChrome" Property="Opacity" Value="0.35"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style TargetType="Button">
    <Setter Property="Foreground" Value="White"/><Setter Property="Background" Value="#202022"/>
    <Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="12,8"/>
    <Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
     <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="14" Padding="{TemplateBinding Padding}">
-     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+     <ContentPresenter ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Border>
     <ControlTemplate.Triggers>
      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#38383C"/></Trigger>
      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#454550"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.35"/></Trigger>
     </ControlTemplate.Triggers>
    </ControlTemplate></Setter.Value></Setter>
   </Style>
@@ -67,11 +109,11 @@ function Get-BatteryLabel {
       </Grid>
      </Grid>
     </Button>
-    <Button x:Name="CompactPrevious" Grid.Column="1" Content="⏮" FontSize="18" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="{Binding IsEnabled, ElementName=CompactNext}" ToolTip="Lagu sebelumnya" AutomationProperties.Name="Putar lagu sebelumnya"/>
-    <Button x:Name="CompactPlay" Grid.Column="2" Content="▶" FontSize="18" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="{Binding IsEnabled, ElementName=CompactNext}" ToolTip="Putar musik" AutomationProperties.Name="Putar musik"/>
-    <Button x:Name="CompactNext" Grid.Column="3" Content="⏭" FontSize="18" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="False" ToolTip="Lagu berikutnya" AutomationProperties.Name="Putar lagu berikutnya"/>
+    <Button x:Name="CompactPrevious" ContentTemplate="{StaticResource MediaIconTemplate}" Grid.Column="1" Content="{StaticResource PreviousIcon}" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="{Binding IsEnabled, ElementName=CompactNext}" ToolTip="Lagu sebelumnya" AutomationProperties.Name="Putar lagu sebelumnya"/>
+    <Button x:Name="CompactPlay" ContentTemplate="{StaticResource MediaIconTemplate}" Grid.Column="2" Content="{StaticResource PlayIcon}" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="{Binding IsEnabled, ElementName=CompactNext}" ToolTip="Putar musik" AutomationProperties.Name="Putar musik"/>
+    <Button x:Name="CompactNext" ContentTemplate="{StaticResource MediaIconTemplate}" Grid.Column="3" Content="{StaticResource NextIcon}" Padding="4" Margin="0,5,0,5" Background="Transparent" IsEnabled="False" ToolTip="Lagu berikutnya" AutomationProperties.Name="Putar lagu berikutnya"/>
    </Grid>
-   <StackPanel x:Name="Details" Grid.Row="1" Visibility="Collapsed" Margin="8,2,8,10">
+   <StackPanel x:Name="Details" Grid.Row="1" Visibility="Collapsed" Opacity="0" Margin="12,4,12,14">
     <StackPanel x:Name="Notice" Visibility="Collapsed" Margin="0,10,0,0">
      <TextBlock x:Name="NoticeKind" Foreground="#ADFF6B" FontSize="12"/>
      <TextBlock x:Name="NoticeTitle" Foreground="White" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -80,16 +122,24 @@ function Get-BatteryLabel {
     </StackPanel>
     <TextBlock x:Name="NotificationStatus" Text="WhatsApp · Menghubungkan notifikasi…" Visibility="Collapsed"/>
     <StackPanel x:Name="MusicPanel">
-    <Grid Margin="0,12,0,6">
-     <Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <Border Width="56" Height="56" Background="#242428" CornerRadius="10" HorizontalAlignment="Left">
-      <Grid><TextBlock x:Name="CoverFallback" Text="♫" Foreground="#ADFF6B" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-       <Image x:Name="AlbumCover" Width="56" Height="56" Stretch="UniformToFill" AutomationProperties.Name="Cover media yang sedang diputar"/>
+    <Grid Margin="0,8,0,4">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Border Width="72" Height="72" Background="#242428" CornerRadius="12" HorizontalAlignment="Left">
+      <Grid>
+       <Grid.Clip><RectangleGeometry Rect="0,0,72,72" RadiusX="12" RadiusY="12"/></Grid.Clip>
+       <TextBlock x:Name="CoverFallback" Text="♫" Foreground="#ADFF6B" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+       <Image x:Name="AlbumCover" Width="72" Height="72" Stretch="UniformToFill" AutomationProperties.Name="Cover media yang sedang diputar"/>
       </Grid>
      </Border>
      <StackPanel Grid.Column="1" VerticalAlignment="Center">
-      <TextBlock x:Name="TrackTitle" Text="Belum ada media" Foreground="White" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-      <TextBlock x:Name="TrackArtist" Text="Putar lagu dari aplikasi musik" Foreground="#929298" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+      <Border x:Name="TitleViewport" ClipToBounds="True">
+       <StackPanel Orientation="Horizontal">
+        <TextBlock x:Name="TrackTitle" Text="Belum ada media" Foreground="White" FontSize="17" FontWeight="SemiBold">
+         <TextBlock.RenderTransform><TranslateTransform/></TextBlock.RenderTransform>
+        </TextBlock>
+       </StackPanel>
+      </Border>
+      <TextBlock x:Name="TrackArtist" Text="Putar lagu dari aplikasi musik" Foreground="#A1A1A8" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
      </StackPanel>
     </Grid>
     <Slider x:Name="TrackProgress" Minimum="0" Maximum="1" Value="0" IsEnabled="False" IsMoveToPointEnabled="True" SmallChange="5" LargeChange="10" Margin="0,8,0,0" AutomationProperties.Name="Posisi lagu dalam detik"/>
@@ -216,6 +266,46 @@ $progress.Add_PreviewKeyDown({ if ($_.Key -in @('Left','Right','Up','Down','Home
 $progress.Add_PreviewKeyUp({ Complete-Seek })
 $progress.Add_ValueChanged({ if ($script:seekDragging) { $window.FindName('TrackPosition').Text = Format-TrackTime $progress.Value } })
 
+function Get-CoverAccent([Windows.Media.Imaging.BitmapSource]$bitmap) {
+    $small = New-Object Windows.Media.Imaging.TransformedBitmap($bitmap, (New-Object Windows.Media.ScaleTransform((8.0 / $bitmap.PixelWidth), (8.0 / $bitmap.PixelHeight))))
+    $sample = New-Object Windows.Media.Imaging.FormatConvertedBitmap($small, [Windows.Media.PixelFormats]::Bgra32, $null, 0)
+    $pixels = New-Object byte[] ($sample.PixelWidth * $sample.PixelHeight * 4)
+    $sample.CopyPixels($pixels, ($sample.PixelWidth * 4), 0)
+    $red = $green = $blue = $weight = 0.0
+    for ($i = 0; $i -lt $pixels.Length; $i += 4) {
+        $alpha = $pixels[$i + 3] / 255.0
+        $blue += $pixels[$i] * $alpha
+        $green += $pixels[$i + 1] * $alpha
+        $red += $pixels[$i + 2] * $alpha
+        $weight += $alpha
+    }
+    if ($weight -eq 0) { return [Windows.Media.BrushConverter]::new().ConvertFromString('#E5E5E9') }
+    # A light, muted tint keeps even dark artwork readable against the slider rail.
+    $color = [Windows.Media.Color]::FromRgb([byte](128 + 0.45 * $red / $weight), [byte](128 + 0.45 * $green / $weight), [byte](128 + 0.45 * $blue / $weight))
+    $brush = New-Object Windows.Media.SolidColorBrush($color)
+    $brush.Freeze()
+    return $brush
+}
+
+function Update-TitleScroll {
+    $title = $window.FindName('TrackTitle')
+    $viewport = $window.FindName('TitleViewport')
+    $transform = $title.RenderTransform
+    $transform.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, $null)
+    $transform.X = 0
+    $overflow = $title.ActualWidth - $viewport.ActualWidth
+    if (-not $script:expanded -or $notice.Visibility -eq 'Visible' -or $viewport.ActualWidth -le 0 -or $overflow -le 1 -or -not [Windows.SystemParameters]::ClientAreaAnimation) { return }
+    $animation = New-Object Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+    [void]$animation.KeyFrames.Add([Windows.Media.Animation.LinearDoubleKeyFrame]::new(0, [Windows.Media.Animation.KeyTime]::FromTimeSpan([TimeSpan]::FromSeconds(1.5))))
+    [void]$animation.KeyFrames.Add([Windows.Media.Animation.LinearDoubleKeyFrame]::new(-$overflow, [Windows.Media.Animation.KeyTime]::FromTimeSpan([TimeSpan]::FromSeconds(1.5 + $overflow / 24))))
+    [void]$animation.KeyFrames.Add([Windows.Media.Animation.LinearDoubleKeyFrame]::new(-$overflow, [Windows.Media.Animation.KeyTime]::FromTimeSpan([TimeSpan]::FromSeconds(2.5 + $overflow / 24))))
+    $animation.AutoReverse = $true
+    $animation.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+    $transform.BeginAnimation([Windows.Media.TranslateTransform]::XProperty, $animation)
+}
+$window.FindName('TitleViewport').Add_SizeChanged({ Update-TitleScroll })
+$window.FindName('TrackTitle').Add_SizeChanged({ Update-TitleScroll })
+
 function Set-MediaPanel($media) {
     $script:mediaTimeline = $media
     Update-Timeline
@@ -224,17 +314,20 @@ function Set-MediaPanel($media) {
     $window.FindName('IdleHeader').Visibility = if ($hasMedia) { 'Collapsed' } else { 'Visible' }
     $window.FindName('CompactNext').IsEnabled = $hasMedia
     $playButton = $window.FindName('CompactPlay')
-    $playButton.Content = if ($hasMedia -and $media.Playing) { 'Ⅱ' } else { '▶' }
+    $playButton.Content = if ($hasMedia -and $media.Playing) { $window.Resources['PauseIcon'] } else { $window.Resources['PlayIcon'] }
     $playButton.ToolTip = if ($hasMedia -and $media.Playing) { 'Jeda musik' } else { 'Putar musik' }
     [Windows.Automation.AutomationProperties]::SetName($playButton, $playButton.ToolTip)
     $title = if ($null -ne $media -and -not [string]::IsNullOrWhiteSpace($media.Title)) { $media.Title } else { 'Belum ada media' }
+    $titleChanged = $window.FindName('TrackTitle').Text -cne $title
     $window.FindName('TrackTitle').Text = $title
+    if ($titleChanged) { Update-TitleScroll }
     $window.FindName('TrackTitle').ToolTip = $title
     $window.FindName('TrackArtist').Text = if ($null -ne $media) { $media.Artist } else { 'Putar lagu dari aplikasi musik' }
     $sameCover = if ($null -ne $media -and $media.CoverToken) {
         $media.CoverToken -ceq $script:lastCoverToken
     } else { [object]::ReferenceEquals($media.Cover, $script:lastCoverBytes) }
     if ($sameCover) { return }
+    $progress.ClearValue([Windows.Controls.Control]::ForegroundProperty)
     $script:lastCoverToken = $media.CoverToken
     $script:lastCoverBytes = $media.Cover
     $window.FindName('AlbumCover').Source = $null
@@ -245,12 +338,13 @@ function Set-MediaPanel($media) {
             $bitmap = New-Object Windows.Media.Imaging.BitmapImage
             $bitmap.BeginInit()
             $bitmap.CacheOption = 'OnLoad'
-            $bitmap.DecodePixelWidth = 112
+            $bitmap.DecodePixelWidth = 144
             $bitmap.StreamSource = $memory
             $bitmap.EndInit()
             $bitmap.Freeze()
             $window.FindName('AlbumCover').Source = $bitmap
             $window.FindName('CoverFallback').Visibility = 'Collapsed'
+            try { $progress.Foreground = Get-CoverAccent $bitmap } catch { $progress.ClearValue([Windows.Controls.Control]::ForegroundProperty) }
         } catch { $window.FindName('AlbumCover').Source = $null }
         finally { $memory.Dispose() }
     }
@@ -372,21 +466,39 @@ function Update-Notifications {
 
 function Set-Expanded([bool]$value) {
     $script:expanded = $value
-    $details.Visibility = if ($value) { 'Visible' } else { 'Collapsed' }
+    $details.IsEnabled = $value
+    if (-not $value -and $details.IsKeyboardFocusWithin) { [void]$window.FindName('Toggle').Focus() }
+    if ($value) { $details.Visibility = 'Visible' }
     $window.FindName('MusicPanel').Visibility = if ($notice.Visibility -eq 'Visible') { 'Collapsed' } else { 'Visible' }
-    $width = 380
+    Update-TitleScroll
     $height = 48
     if ($value) {
         $details.Measure((New-Object Windows.Size(354, [double]::PositiveInfinity)))
         $height = [math]::Ceiling(48 + $details.DesiredSize.Height)
     }
-    foreach ($entry in @(@([Windows.FrameworkElement]::WidthProperty, $width), @([Windows.FrameworkElement]::HeightProperty, $height))) {
+    $opacity = if ($value) { 1.0 } else { 0.0 }
+    if (-not [Windows.SystemParameters]::ClientAreaAnimation) {
+        $pill.BeginAnimation([Windows.FrameworkElement]::HeightProperty, $null)
+        $details.BeginAnimation([Windows.UIElement]::OpacityProperty, $null)
+        $pill.Height = $height
+        $details.Opacity = $opacity
+        $details.Visibility = if ($value) { 'Visible' } else { 'Collapsed' }
+        return
+    }
+    foreach ($entry in @(
+        @($pill, [Windows.FrameworkElement]::HeightProperty, $pill.Height, $height, $(if ($value) { 320 } else { 240 })),
+        @($details, [Windows.UIElement]::OpacityProperty, $details.Opacity, $opacity, $(if ($value) { 200 } else { 120 }))
+    )) {
         $animation = New-Object Windows.Media.Animation.DoubleAnimation
-        $animation.To = $entry[1]
-        $animation.Duration = [TimeSpan]::FromMilliseconds(280)
+        $animation.From = $entry[2]
+        $animation.To = $entry[3]
+        $animation.Duration = [TimeSpan]::FromMilliseconds($entry[4])
         $animation.EasingFunction = New-Object Windows.Media.Animation.CubicEase
-        $animation.EasingFunction.EasingMode = 'EaseOut'
-        $pill.BeginAnimation($entry[0], $animation)
+        $animation.EasingFunction.EasingMode = if ($value) { 'EaseOut' } else { 'EaseInOut' }
+        if (-not $value -and $entry[0] -eq $pill) {
+            $animation.Add_Completed({ if (-not $script:expanded) { $details.Visibility = 'Collapsed' } })
+        }
+        $entry[0].BeginAnimation($entry[1], $animation)
     }
 }
 function Update-Island {
@@ -470,8 +582,69 @@ if ($SelfTest -or $IntegrationTest) {
     Set-Expanded $true
     if ($details.Visibility -ne 'Visible') { throw 'Expand failed' }
     if ($details.DesiredSize.Height + 48 -gt 320) { throw 'Music panel is not compact' }
+    foreach ($slider in @($progress, $volumeSlider)) {
+        [void]$slider.ApplyTemplate()
+        $slider.Measure((New-Object Windows.Size(320, 28)))
+        $slider.Arrange((New-Object Windows.Rect(0, 0, 320, 28)))
+        $track = $slider.Template.FindName('PART_Track', $slider)
+        if ($null -eq $track -or $track.Thumb.ActualHeight -lt 24) { throw 'Slider template or hit area failed' }
+        if ($track.Maximum -ne $slider.Maximum -or $track.Value -ne $slider.Value) { throw 'Slider track binding failed' }
+        if ($track.DecreaseRepeatButton.Command -ne [Windows.Controls.Slider]::DecreaseLarge -or $track.IncreaseRepeatButton.Command -ne [Windows.Controls.Slider]::IncreaseLarge) { throw 'Slider commands failed' }
+    }
+    Write-Output 'PASS: slider templates, hit areas, range bindings and commands.'
     Set-Expanded $false
-    if ($details.Visibility -ne 'Collapsed') { throw 'Collapse failed' }
+    if ($details.IsEnabled) { throw 'Closing panel remains interactive' }
+    function Wait-TestAnimation([int]$milliseconds = 400) {
+        $frame = New-Object Windows.Threading.DispatcherFrame
+        $waitTimer = New-Object Windows.Threading.DispatcherTimer
+        $waitTimer.Interval = [TimeSpan]::FromMilliseconds($milliseconds)
+        $waitTimer.Add_Tick({ $waitTimer.Stop(); $frame.Continue = $false }.GetNewClosure())
+        $waitTimer.Start()
+        [Windows.Threading.Dispatcher]::PushFrame($frame)
+    }
+    Wait-TestAnimation
+    if ($details.Visibility -ne 'Collapsed' -or $pill.Height -ne 48 -or $details.Opacity -ne 0) { throw 'Collapse failed' }
+    Set-Expanded $true
+    Wait-TestAnimation
+    $openHeight = $pill.Height
+    if ($details.Opacity -ne 1 -or $openHeight -le 48) { throw 'Open animation failed' }
+    Set-Expanded $false
+    Wait-TestAnimation 80
+    $closingHeight = $pill.Height
+    if ([Windows.SystemParameters]::ClientAreaAnimation -and ($closingHeight -le 48 -or $closingHeight -ge $openHeight)) { throw 'Missing intermediate animation frame' }
+    Set-Expanded $true
+    if ([Windows.SystemParameters]::ClientAreaAnimation -and [math]::Abs($pill.Height - $closingHeight) -gt 1) { throw 'Animation jumped on reversal' }
+    Wait-TestAnimation
+    if ($details.Visibility -ne 'Visible' -or -not $details.IsEnabled -or $pill.Height -ne $openHeight -or $details.Opacity -ne 1) { throw 'Rapid reopen failed' }
+    Set-Expanded $false
+    Wait-TestAnimation
+    Write-Output 'PASS: animated open/close, fade, disabled closing controls and rapid reversal.'
+    $scrollMedia = [pscustomobject]@{ Title='A long song title that must scroll completely inside the expanded music panel'; Artist='Test'; Cover=$null }
+    Set-MediaPanel $scrollMedia
+    Set-Expanded $true
+    $viewport = $window.FindName('TitleViewport')
+    $viewport.Measure((New-Object Windows.Size(220, 30)))
+    $viewport.Arrange((New-Object Windows.Rect(0, 0, 220, 30)))
+    Update-TitleScroll
+    $titleTransform = $window.FindName('TrackTitle').RenderTransform
+    if ([Windows.SystemParameters]::ClientAreaAnimation) {
+        if (-not $titleTransform.HasAnimatedProperties) { throw 'Long title did not animate' }
+        Wait-TestAnimation 1800
+        if ($titleTransform.X -ge 0) { throw 'Long title did not move after initial pause' }
+        $scrollPosition = $titleTransform.X
+        Set-MediaPanel $scrollMedia
+        if ([math]::Abs($titleTransform.X - $scrollPosition) -gt 1) { throw 'Media polling restarted title scroll' }
+    }
+    Set-Expanded $false
+    if ($titleTransform.HasAnimatedProperties -or $titleTransform.X -ne 0) { throw 'Closed panel kept scrolling' }
+    Set-MediaPanel ([pscustomobject]@{ Title='Short'; Artist='Test'; Cover=$null })
+    Set-Expanded $true
+    $viewport.Measure((New-Object Windows.Size(220, 30)))
+    $viewport.Arrange((New-Object Windows.Rect(0, 0, 220, 30)))
+    Update-TitleScroll
+    if ($titleTransform.HasAnimatedProperties) { throw 'Short title should stay still' }
+    Set-Expanded $false
+    Write-Output 'PASS: long title scroll, polling continuity, close reset and stationary short title.'
     $notice.Visibility = 'Visible'
     $window.FindName('NoticeTitle').Text = 'Test only'
     $script:noticeUntil = (Get-Date).AddSeconds(-1)
@@ -498,26 +671,38 @@ if ($SelfTest -or $IntegrationTest) {
     Set-MediaPanel ([pscustomobject]@{ Title = 'Test song'; Artist = 'Test artist'; Cover = $testStream.ToArray() })
     $testStream.Dispose()
     if ($null -eq $window.FindName('AlbumCover').Source -or $window.FindName('CoverFallback').Visibility -ne 'Collapsed') { throw 'Valid cover not displayed' }
+    $accent = $progress.Foreground
+    if ($accent.Color.R -le $accent.Color.G -or $accent.Color.G -le $accent.Color.B -or $accent.Color.B -lt 128) { throw 'Cover accent hue or brightness failed' }
+    if ($volumeSlider.Foreground.Color.ToString() -ne '#FFE5E5E9') { throw 'Cover accent leaked to volume' }
+    foreach ($rgba in @([byte[]]@(0,0,0,255), [byte[]]@(255,255,255,255), [byte[]]@(255,0,0,0))) {
+        $edgeBitmap = [Windows.Media.Imaging.BitmapSource]::Create(1,1,96,96,[Windows.Media.PixelFormats]::Bgra32,$null,$rgba,4)
+        $edgeAccent = Get-CoverAccent $edgeBitmap
+        if ($edgeAccent.Color.R -lt 128 -or $edgeAccent.Color.R -ne $edgeAccent.Color.G) { throw 'Dark, light or transparent accent failed' }
+    }
     $cachedBitmap = $window.FindName('AlbumCover').Source
     $cachedMedia = $script:mediaTimeline
     Set-MediaPanel $cachedMedia
     if (-not [object]::ReferenceEquals($cachedBitmap, $window.FindName('AlbumCover').Source)) { throw 'Unchanged cover was decoded again' }
+    if (-not [object]::ReferenceEquals($accent, $progress.Foreground)) { throw 'Unchanged cover accent was recalculated' }
     Set-Expanded $false
     if ($window.FindName('MediaHeader').Visibility -ne 'Visible' -or -not $window.FindName('CompactNext').IsEnabled) { throw 'Compact media unavailable' }
     Set-MediaPanel ([pscustomobject]@{ Title = 'Test song'; Artist = 'Test artist'; Cover = [byte[]]@(0,1,2) })
     if ($window.FindName('TrackTitle').Text -ne 'Test song' -or $null -ne $window.FindName('AlbumCover').Source) { throw 'Invalid cover fallback failed' }
+    if ($progress.Foreground.Color.ToString() -ne '#FFE5E5E9') { throw 'Invalid cover accent did not reset' }
+    Write-Output 'PASS: cover accent hue, brightness, transparency, cache and neutral fallback.'
     Set-MediaPanel $null
     if ($window.FindName('TrackTitle').Text -ne 'Belum ada media' -or $null -ne $window.FindName('AlbumCover').Source) { throw 'Media reset failed' }
     if ($window.FindName('IdleHeader').Visibility -ne 'Visible' -or $window.FindName('CompactNext').IsEnabled) { throw 'Compact idle reset failed' }
     Write-Output 'PASS: media title, invalid cover fallback and empty session.'
     if ((Format-TrackTime 65) -ne '1:05' -or (Format-TrackTime 3661) -ne '1:01:01') { throw 'Timeline format failed' }
     $sample = [pscustomobject]@{ Title='Timeline test'; Artist='Test'; Source='Test'; Cover=$null; Duration=120; Position=30; Updated=[DateTimeOffset]::Now.AddSeconds(-5); Playing=$false; Rate=1; CanSeek=$true }
+    Set-Expanded $true
     Set-MediaPanel $sample
     if ($progress.Value -ne 30 -or $window.FindName('TrackDuration').Text -ne '2:00') { throw 'Paused timeline failed' }
-    if ($window.FindName('CompactPlay').Content -ne '▶' -or $window.FindName('CompactPlay').ToolTip -ne 'Putar musik') { throw 'Paused playback icon failed' }
+    if ($window.FindName('CompactPlay').Content -ne $window.Resources['PlayIcon'] -or $window.FindName('CompactPlay').ToolTip -ne 'Putar musik') { throw 'Paused playback icon failed' }
     $sample.Playing = $true
     Set-MediaPanel $sample
-    if ($window.FindName('CompactPlay').Content -ne 'Ⅱ' -or $window.FindName('CompactPlay').ToolTip -ne 'Jeda musik') { throw 'Playing playback icon failed' }
+    if ($window.FindName('CompactPlay').Content -ne $window.Resources['PauseIcon'] -or $window.FindName('CompactPlay').ToolTip -ne 'Jeda musik') { throw 'Playing playback icon failed' }
     if ($progress.Value -lt 35 -or $progress.Value -gt 38) { throw 'Playing timeline failed' }
     Begin-Seek
     $progress.Value = 70
@@ -534,6 +719,7 @@ if ($SelfTest -or $IntegrationTest) {
     $window.FindName('SeekStatus').Text = ''
     Write-Output 'PASS: timeline duration, pause/play, drag, seek request, clamp and reset.'
     if ([AppVolume]::ProcessName('Spotify.exe') -ne 'Spotify' -or $null -ne [AppVolume]::ProcessName('unknown-app')) { throw 'Volume source matching failed' }
+    if ([AppVolume]::ProcessName('Brave') -ne 'brave' -or [AppVolume]::ProcessName('BRAVE') -ne 'brave' -or $null -ne [AppVolume]::ProcessName('Brave.Other')) { throw 'Browser volume source matching failed' }
     foreach ($invalid in @(-1, 101, [double]::NaN, [double]::PositiveInfinity)) {
         $rejected = $false
         try { [AppVolume]::Set('Spotify.exe', $invalid) | Out-Null } catch { $rejected = $true }
