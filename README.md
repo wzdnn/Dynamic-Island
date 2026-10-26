@@ -7,7 +7,7 @@ tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses be
 
 ## Menjalankan
 
-Untuk Windows x64, unduh **Dynamic-Island-v1.3.0-win-x64.exe** dari
+Untuk Windows x64, unduh **Dynamic-Island-v1.4.1-win-x64.exe** dari
 [GitHub Releases](https://github.com/wzdnn/Dynamic-Island/releases/latest), lalu klik dua kali.
 Tidak perlu ZIP, instalasi, atau file pendukung di sebelah EXE. Launcher memakai
 Windows PowerShell 5.1 dan WPF bawaan Windows tanpa jendela terminal atau Windows Script Host.
@@ -31,7 +31,8 @@ Untuk menjalankan dari source:
 3. Klik pil untuk membuka panel. Klik kanan lalu pilih **Keluar Dynamic Island** untuk menutup.
 
 Integrasi media membutuhkan aplikasi yang menyediakan sesi media Windows; telah diuji
-dengan Spotify desktop. Integrasi WhatsApp ditujukan untuk paket WhatsApp Desktop Windows.
+dengan Spotify desktop. Integrasi WhatsApp Desktop tetap tersedia; ekstensi WhatsApp Web
+untuk Chrome dan Brave tersedia sebagai fitur awal/eksperimental.
 Tidak diperlukan instalasi .NET SDK atau paket tambahan.
 
 ## Startup opsional
@@ -41,6 +42,21 @@ pengguna (buka `shell:startup` lewat Run). Aplikasi kemudian berjalan setelah lo
 Jangan memindahkan folder proyek tanpa memperbarui shortcut. Hapus shortcut untuk
 menonaktifkan startup; tindakan ini tidak menghapus aplikasi. Shortcut dan pengaturan
 Windows lokal tidak disertakan dalam repository.
+
+## WhatsApp Web (Chrome dan Brave)
+
+Klik kanan pil → **Siapkan ekstensi WhatsApp Web**, lalu pasang folder yang terbuka dengan
+**Load unpacked** di `chrome://extensions` atau `brave://extensions` (Developer mode).
+Muat ulang tab WhatsApp Web dan klik ikon ekstensi untuk tes koneksi, pesan, dan panggilan.
+Folder ekstensi dibawa di dalam EXE dan disiapkan otomatis di
+`%LOCALAPPDATA%\DynamicIsland\extension`. Penyiapan mendaftarkan Native Messaging untuk
+akun pengguna; tidak memasang ekstensi diam-diam. Jika EXE dipindah, jalankan penyiapan lagi.
+
+Notifikasi halaman diteruskan, dengan pemberitahuan umum dari kenaikan angka belum dibaca
+sebagai cadangan. Panggilan adalah **indikasi** dari teks notifikasi atau dialog jawab/tolak,
+bukan status telepon resmi. Tab harus terbuka dan login. Notifikasi service worker dan
+perubahan UI WhatsApp dapat tidak terdeteksi. Tombol buka memakai browser default.
+Lihat [petunjuk, privasi, dan batasan lengkap](extension/README.md).
 
 ## Fitur
 
@@ -52,6 +68,9 @@ Windows lokal tidak disertakan dalam repository.
   jika belum ada pengaturan; folder pengaturan harus dapat ditulis.
   Jika tertutup, minimalkan jendela yang menutupinya
   untuk mengakses pil lagi.
+- Notifikasi pesan/panggilan sementara tampil di atas jendela biasa meskipun **Always on top**
+  mati. Setelah notifikasi habis (15 detik), ditutup/dikecilkan, atau jendela panggilan Desktop
+  berakhir, panel kembali mengikuti pilihan semula. Centang dan pengaturan tersimpan tidak berubah.
 - Klik untuk membuka kontrol media; Escape untuk mengecilkan.
 - Buka/tutup memakai transisi tinggi dan fade isi panel; klik cepat melanjutkan dari
   posisi animasi saat itu. Jika animasi Windows dimatikan, panel berubah langsung.
@@ -135,7 +154,8 @@ Panel dapat menutupi bagian atas aplikasi; keluar melalui menu jika mengganggu.
 Build EXE tunggal dengan `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1`.
 Build memakai compiler .NET Framework bawaan Windows x64, menguji ekstraksi resource dan migrasi
 pengaturan, menjalankan SelfTest melalui EXE, dan menghasilkan EXE beserta checksum SHA-256
-di `dist`. Tidak membutuhkan .NET SDK. Hanya EXE yang perlu diunduh untuk menjalankan aplikasi.
+di `dist`. Build/test ekstensi memerlukan Node.js; pengguna aplikasi tidak memerlukannya.
+Tidak membutuhkan .NET SDK. Hanya EXE yang perlu diunduh; folder ekstensi disiapkan dari EXE.
 Untuk memeriksa EXE secara mandiri, jalankan dengan argumen `--self-test` dan periksa exit code (0 = lolos).
 
 Pembaca media memakai ulang satu runspace dan session manager. Cover disimpan di memori

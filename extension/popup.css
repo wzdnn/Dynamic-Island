@@ -1,0 +1,5 @@
+body { width: 300px; padding: 16px; margin: 0; font: 14px/1.5 system-ui; color: #f5f5f7; background: #141416; }
+h1 { font-size: 20px; margin-top: 0; }
+button { display: block; width: 100%; margin: 8px 0; padding: 10px; border: 1px solid #777; border-radius: 8px; color: inherit; background: #303034; cursor: pointer; }
+button:focus-visible { outline: 3px solid #adff6b; outline-offset: 2px; }
+#status { color: #adff6b; }

@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Dynamic Island · WhatsApp Web",
+  "version": "1.0.0",
+  "description": "Notifikasi pesan dan indikasi panggilan WhatsApp Web ke Dynamic Island lokal.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1CNOXKkWswz1OkrP+3Vt/GlNWIqtJBRFKfenm/ykwKLUXKXYL1gGj8IALMK/zEr5L1CD0hK5ZXS2XFB1zugIJLnnoL0CXqWVq2uqsXqJDiHgyeJ0oj0MaQHzmVdeFOt6UoHc5pt+EDXB9yRzJ9oj2qqr2mVZSsV8gIcX43mLyPuJjGs+rnF/xbc0N/Ex3WgESJ7e9rVtnfBY75HyW4ru1k836D5TZthHixgABzKSqb2RHyyTpSTYhJdJOYk5KfBlvqHOrNHfnpi9F51s/BxAFKVGWTJcbjZEt+Qau1s+bDoN7+kdRrwMtwbQbPjbrO4vPz6Ezb3LVTdt+w1L/iJL+QIDAQAB",
+  "permissions": ["nativeMessaging"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Dynamic Island · WhatsApp Web" },
+  "content_scripts": [
+    { "matches": ["https://web.whatsapp.com/*"], "js": ["page.js"], "run_at": "document_start", "world": "MAIN" },
+    { "matches": ["https://web.whatsapp.com/*"], "js": ["content.js"], "run_at": "document_start" }
+  ]
+}

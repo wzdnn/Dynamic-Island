@@ -13,6 +13,9 @@ try {
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -Path "$PSScriptRoot\WhatsAppCalls.cs"
 Add-Type -Path "$PSScriptRoot\AppVolume.cs"
+Add-Type -Path "$PSScriptRoot\WebBridge.cs" -ReferencedAssemblies System.Web.Extensions
+$script:webBridge = $null
+$script:noticeIsWeb = $false
 
 function Read-IslandTopmost([string]$path) {
     if (-not [IO.File]::Exists($path)) { return $true }
@@ -184,6 +187,7 @@ function Get-BatteryLabel {
 '@
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $markup))
 if (-not ($SelfTest -or $IntegrationTest)) { $window.Topmost = Read-IslandTopmost $settingsPath }
+$script:alwaysOnTop = $window.Topmost
 $pill = $window.FindName('Pill')
 $details = $window.FindName('Details')
 $battery = $window.FindName('Battery')
@@ -432,7 +436,12 @@ function Update-CallPanel([IntPtr]$handle) {
     Set-Expanded $true
 }
 
+function Update-IslandTopmost {
+    $window.Topmost = $script:alwaysOnTop -or ($script:expanded -and $notice.Visibility -eq 'Visible')
+}
+
 function Clear-Notice {
+    $script:noticeIsWeb = $false
     $wasVisible = $notice.Visibility -eq 'Visible'
     $notice.Visibility = 'Collapsed'
     $window.FindName('MusicPanel').Visibility = 'Visible'
@@ -440,7 +449,21 @@ function Clear-Notice {
     $window.FindName('NoticeBody').Text = ''
     $window.FindName('OpenWhatsApp').Content = 'Buka WhatsApp'
     $script:noticeUntil = [datetime]::MinValue
+    Update-IslandTopmost
     if ($wasVisible -and $script:expanded) { Set-Expanded $true }
+}
+
+function Show-WebNotice($entry) {
+    if ($null -eq $entry -or $script:callWindow -ne [IntPtr]::Zero) { return }
+    Clear-Notice
+    $script:noticeIsWeb = $true
+    $window.FindName('NoticeKind').Text = if ($entry.Kind -eq 'call') { 'WhatsApp Web · Indikasi panggilan masuk' } else { 'WhatsApp Web · Notifikasi baru' }
+    $window.FindName('NoticeTitle').Text = $entry.Title
+    $window.FindName('NoticeBody').Text = $entry.Body
+    $window.FindName('OpenWhatsApp').Content = 'Buka WhatsApp Web'
+    $notice.Visibility = 'Visible'
+    $script:noticeUntil = (Get-Date).AddSeconds(15)
+    Set-Expanded $true
 }
 
 function Update-Notifications {
@@ -473,6 +496,7 @@ function Update-Notifications {
         $script:seenNotifications = $current
         $notificationStatus.Text = 'WhatsApp · Notifikasi terhubung'
         if ($null -ne $newest -and $script:callWindow -eq [IntPtr]::Zero) {
+            Clear-Notice
             $window.FindName('NoticeKind').Text = if ($newest.IsCall) { 'WhatsApp · Kemungkinan panggilan masuk' } else { 'WhatsApp · Notifikasi baru' }
             $window.FindName('NoticeTitle').Text = $newest.Title
             $window.FindName('NoticeBody').Text = $newest.Body
@@ -481,7 +505,7 @@ function Update-Notifications {
             Set-Expanded $true
         }
     } catch {
-        if ($script:callWindow -eq [IntPtr]::Zero) { Clear-Notice }
+        if ($script:callWindow -eq [IntPtr]::Zero -and -not $script:noticeIsWeb) { Clear-Notice }
         $notificationStatus.Text = 'WhatsApp · Akses notifikasi gagal. Periksa izin Windows.'
         $script:notificationTask = $null
         $script:retryNotificationsAt = (Get-Date).AddSeconds(30)
@@ -490,6 +514,7 @@ function Update-Notifications {
 
 function Set-Expanded([bool]$value) {
     $script:expanded = $value
+    Update-IslandTopmost
     $details.IsEnabled = $value
     if (-not $value -and $details.IsKeyboardFocusWithin) { [void]$window.FindName('Toggle').Focus() }
     if ($value) { $details.Visibility = 'Visible' }
@@ -560,6 +585,9 @@ $window.FindName('OpenWhatsApp').Add_Click({
     try {
         if ($script:callWindow -ne [IntPtr]::Zero) {
             if (-not [WhatsAppCalls]::Open($script:callWindow)) { throw 'Cannot open call window' }
+        } elseif ($script:noticeIsWeb) {
+            Start-Process 'https://web.whatsapp.com/'
+            Clear-Notice
         } else {
             Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App'
             Clear-Notice
@@ -573,15 +601,22 @@ $menu = New-Object Windows.Controls.ContextMenu
 $topmostItem = New-Object Windows.Controls.MenuItem
 $topmostItem.Header = 'Always on top'
 $topmostItem.IsCheckable = $true
-$topmostBinding = New-Object Windows.Data.Binding('Topmost')
-$topmostBinding.Source = $window
-$topmostBinding.Mode = [Windows.Data.BindingMode]::TwoWay
-[void]$topmostItem.SetBinding([Windows.Controls.MenuItem]::IsCheckedProperty, $topmostBinding)
+$topmostItem.IsChecked = $script:alwaysOnTop
+$topmostItem.Add_Checked({ $script:alwaysOnTop = $true; Update-IslandTopmost })
+$topmostItem.Add_Unchecked({ $script:alwaysOnTop = $false; Update-IslandTopmost })
 $topmostItem.Add_Click({
     try { Save-IslandTopmost $settingsPath $topmostItem.IsChecked }
     catch { [void][Windows.MessageBox]::Show($window, 'Pilihan berlaku sekarang, tetapi gagal disimpan. Pastikan folder pengaturan dapat ditulis.', 'Dynamic Island') }
 })
 [void]$menu.Items.Add($topmostItem)
+$webSetupItem = New-Object Windows.Controls.MenuItem
+$webSetupItem.Header = 'Siapkan ekstensi WhatsApp Web'
+$webSetupItem.IsEnabled = -not [string]::IsNullOrEmpty($env:DYNAMIC_ISLAND_EXE)
+$webSetupItem.Add_Click({
+    try { Start-Process -FilePath $env:DYNAMIC_ISLAND_EXE -ArgumentList '--setup-browser' -WindowStyle Hidden }
+    catch { [void][Windows.MessageBox]::Show($window, 'Penyiapan ekstensi tidak dapat dibuka.', 'Dynamic Island') }
+})
+[void]$menu.Items.Add($webSetupItem)
 $statusItem = New-Object Windows.Controls.MenuItem
 $statusItem.IsEnabled = $false
 $statusBinding = New-Object Windows.Data.Binding('Text')
@@ -600,12 +635,14 @@ $timer.Add_Tick({
     catch { $notificationStatus.Text = 'Deteksi jendela panggilan gagal.' }
     Update-Island
     Update-Notifications
+    if ($null -ne $script:webBridge) { Show-WebNotice ($script:webBridge.TakeLatest()) }
     Update-Media
     if ($script:expanded -and $notice.Visibility -ne 'Visible') { Update-Timeline }
     Update-Volume
 })
 $window.Add_Closed({
     $timer.Stop()
+    if ($null -ne $script:webBridge) { $script:webBridge.Dispose() }
     if ($null -ne $script:mediaWorker) {
         $script:mediaWorker.Stop()
         $script:mediaWorker.Runspace.Dispose()
@@ -614,6 +651,12 @@ $window.Add_Closed({
 })
 Update-Island
 if ($SelfTest -or $IntegrationTest) {
+    Show-WebNotice ([WebBridge]::Parse('{"kind":"call","title":"Test only","body":"Synthetic call indication"}'))
+    if (-not $script:noticeIsWeb -or $notice.Visibility -ne 'Visible' -or $window.FindName('OpenWhatsApp').Content -ne 'Buka WhatsApp Web') { throw 'Web call notice failed' }
+    Clear-Notice
+    if ($script:noticeIsWeb -or $window.FindName('NoticeBody').Text) { throw 'Web notice cleanup failed' }
+    Set-Expanded $false
+    Write-Output 'PASS: Web call notice, correct open action and text cleanup.'
     $testSettingsPath = Join-Path $PSScriptRoot ('island-settings-test-' + [guid]::NewGuid() + '.json')
     try {
         if (-not (Read-IslandTopmost $testSettingsPath)) { throw 'Missing settings default failed' }
@@ -633,6 +676,27 @@ if ($SelfTest -or $IntegrationTest) {
     Set-Expanded $true
     Set-Expanded $false
     if ($window.Topmost -or $topmostItem.IsChecked) { throw 'Expand/collapse reset always on top' }
+    foreach ($kind in @('message', 'call')) {
+        Show-WebNotice ([WebBridge]::Parse(('{"kind":"' + $kind + '","title":"Test only","body":"Temporary notification"}')))
+        if (-not $window.Topmost -or $topmostItem.IsChecked -or $script:alwaysOnTop) { throw 'Notification did not temporarily rise without changing preference' }
+        Set-Expanded $false
+        if ($window.Topmost) { throw 'Dismissed notification stayed on top' }
+        Set-Expanded $true
+        if (-not $window.Topmost) { throw 'Reopened notification did not rise' }
+        $script:noticeUntil = (Get-Date).AddSeconds(-1)
+        Update-Island
+        if ($window.Topmost -or $topmostItem.IsChecked) { throw 'Expired notification changed always on top' }
+    }
+    Update-CallPanel ([IntPtr]123)
+    if (-not $window.Topmost -or $topmostItem.IsChecked) { throw 'Desktop call did not temporarily rise' }
+    Update-CallPanel ([IntPtr]::Zero)
+    if ($window.Topmost) { throw 'Ended call stayed on top' }
+    Show-WebNotice ([WebBridge]::Parse('{"kind":"message","title":"Test only","body":"Preference changed during notice"}'))
+    $topmostItem.SetCurrentValue([Windows.Controls.MenuItem]::IsCheckedProperty, $true)
+    Clear-Notice
+    if (-not $window.Topmost) { throw 'Explicit always on top preference lost after notice' }
+    Set-Expanded $false
+    Write-Output 'PASS: temporary notification topmost, unchanged preference, dismissal, expiry and desktop call end.'
     $topmostItem.SetCurrentValue([Windows.Controls.MenuItem]::IsCheckedProperty, $true)
     if (-not $window.Topmost) { throw 'Always on top enable failed' }
     Write-Output 'PASS: always on top default, disable, expand/collapse and enable.'
@@ -826,6 +890,7 @@ if ($SelfTest -or $IntegrationTest) {
     Write-Output 'PASS: XAML, battery, clock, expand/collapse and media interop initialization.'
     exit 0
 }
+$script:webBridge = New-Object WebBridge
 $timer.Start()
 [void]$window.ShowDialog()
 } finally {
