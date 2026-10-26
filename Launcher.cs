@@ -7,7 +7,7 @@ using System.Web.Script.Serialization;
 using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Dynamic Island")]
-[assembly: AssemblyVersion("1.4.1.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
 
 internal static class Launcher
 {

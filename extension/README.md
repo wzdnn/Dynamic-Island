@@ -1,8 +1,10 @@
 # Dynamic Island · WhatsApp Web (awal/eksperimental)
 
+Ekstensi ini opsional. Dynamic Island membaca notifikasi browser yang masuk ke pusat notifikasi Windows tanpa ekstensi. Integrasi ini menambahkan indikasi panggilan dan aktivitas halaman WhatsApp Web. Island menggabungkan notifikasi Windows/ekstensi yang judul dan isinya sama selama 15 detik. Pemberitahuan umum angka belum dibaca hanya dipakai jika pembaca Windows tidak terhubung. Dialog panggilan digabung dengan indikasi panggilan WA/browser dalam rentang yang sama. Format teks berbeda atau keterlambatan lebih dari 15 detik masih dapat menghasilkan notifikasi terpisah; panggilan bersamaan dapat tergabung.
+
 ## Memasang di Chrome dan Brave
 
-1. Jalankan Dynamic Island v1.4.0. Klik kanan pil → **Siapkan ekstensi WhatsApp Web**.
+1. Jalankan Dynamic Island v1.5.0. Klik kanan pil → **Siapkan ekstensi WhatsApp Web (opsional)**.
    Folder ini akan dibuka, dan penghubung Native Messaging didaftarkan untuk akun Windows Anda.
 2. Buka `chrome://extensions` di Chrome atau `brave://extensions` di Brave.
 3. Aktifkan **Developer mode**, klik **Load unpacked**, pilih folder ini:

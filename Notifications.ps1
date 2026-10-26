@@ -17,14 +17,16 @@ function script:Start-NotificationRead {
     return $script:asTask.MakeGenericMethod($type).Invoke($null, @($operation))
 }
 
-function script:Convert-WhatsAppNotification($notification) {
-    if ($notification.AppInfo.PackageFamilyName -ne '5319275A.WhatsAppDesktop_cv1g1gvanyjgm') { return }
+function script:Convert-WindowsNotification($notification) {
+    $isWhatsApp = $notification.AppInfo.PackageFamilyName -eq '5319275A.WhatsAppDesktop_cv1g1gvanyjgm'
+    $appName = $notification.AppInfo.DisplayInfo.DisplayName
+    if ([string]::IsNullOrWhiteSpace($appName)) { $appName = 'Windows' }
     $binding = $notification.Notification.Visual.GetBinding('ToastGeneric')
     if ($null -eq $binding) { return }
     $lines = @($binding.GetTextElements() | ForEach-Object { $_.Text })
     if ($lines.Count -eq 0) { return }
     $body = ($lines | Select-Object -Skip 1) -join ' · '
     # shortcut: notification text only hints at a call, use a WhatsApp API if one becomes available.
-    $call = $body -match '(?i)(incoming (voice |video )?call|panggilan (suara |video )?masuk|calling you|sedang menelepon)'
-    return [pscustomobject]@{ Id = $notification.Id; Created = $notification.CreationTime; Title = $lines[0]; Body = $body; IsCall = $call }
+    $call = $isWhatsApp -and $body -match '(?i)(incoming (voice |video )?call|panggilan (suara |video )?masuk|calling you|sedang menelepon)'
+    return [pscustomobject]@{ Id = $notification.Id; Created = $notification.CreationTime; AppName = $appName; Title = $lines[0]; Body = $body; IsCall = $call; IsWhatsApp = $isWhatsApp }
 }

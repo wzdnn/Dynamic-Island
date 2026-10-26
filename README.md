@@ -7,7 +7,7 @@ tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses be
 
 ## Menjalankan
 
-Untuk Windows x64, unduh **Dynamic-Island-v1.4.1-win-x64.exe** dari
+Untuk Windows x64, unduh **Dynamic-Island-v1.5.0-win-x64.exe** dari
 [GitHub Releases](https://github.com/wzdnn/Dynamic-Island/releases/latest), lalu klik dua kali.
 Tidak perlu ZIP, instalasi, atau file pendukung di sebelah EXE. Launcher memakai
 Windows PowerShell 5.1 dan WPF bawaan Windows tanpa jendela terminal atau Windows Script Host.
@@ -31,7 +31,7 @@ Untuk menjalankan dari source:
 3. Klik pil untuk membuka panel. Klik kanan lalu pilih **Keluar Dynamic Island** untuk menutup.
 
 Integrasi media membutuhkan aplikasi yang menyediakan sesi media Windows; telah diuji
-dengan Spotify desktop. Integrasi WhatsApp Desktop tetap tersedia; ekstensi WhatsApp Web
+dengan Spotify desktop. Notifikasi Windows dari semua aplikasi, termasuk browser, dibaca tanpa ekstensi. Deteksi panggilan WhatsApp Desktop tetap tersedia; ekstensi WhatsApp Web
 untuk Chrome dan Brave tersedia sebagai fitur awal/eksperimental.
 Tidak diperlukan instalasi .NET SDK atau paket tambahan.
 
@@ -43,9 +43,11 @@ Jangan memindahkan folder proyek tanpa memperbarui shortcut. Hapus shortcut untu
 menonaktifkan startup; tindakan ini tidak menghapus aplikasi. Shortcut dan pengaturan
 Windows lokal tidak disertakan dalam repository.
 
-## WhatsApp Web (Chrome dan Brave)
+## WhatsApp Web opsional (Chrome dan Brave)
 
-Klik kanan pil → **Siapkan ekstensi WhatsApp Web**, lalu pasang folder yang terbuka dengan
+Ekstensi tidak diperlukan untuk notifikasi browser yang masuk ke pusat notifikasi Windows. Ekstensi tetap tersedia untuk indikasi panggilan dan aktivitas khusus WhatsApp Web. Notifikasi Windows dan ekstensi dengan judul/isi yang sama digabung dalam jendela 15 detik, termasuk setelah panel ditutup. Pemberitahuan umum angka belum dibaca dari ekstensi hanya digunakan saat pembaca Windows tidak terhubung.
+
+Klik kanan pil → **Siapkan ekstensi WhatsApp Web (opsional)**, lalu pasang folder yang terbuka dengan
 **Load unpacked** di `chrome://extensions` atau `brave://extensions` (Developer mode).
 Muat ulang tab WhatsApp Web dan klik ikon ekstensi untuk tes koneksi, pesan, dan panggilan.
 Folder ekstensi dibawa di dalam EXE dan disiapkan otomatis di
@@ -56,6 +58,7 @@ Notifikasi halaman diteruskan, dengan pemberitahuan umum dari kenaikan angka bel
 sebagai cadangan. Panggilan adalah **indikasi** dari teks notifikasi atau dialog jawab/tolak,
 bukan status telepon resmi. Tab harus terbuka dan login. Notifikasi service worker dan
 perubahan UI WhatsApp dapat tidak terdeteksi. Tombol buka memakai browser default.
+Pencocokan tidak memakai ID pesan bersama: format teks yang berbeda atau selisih lebih dari 15 detik masih dapat lolos sebagai notifikasi terpisah. Dialog panggilan Web dan indikasi panggilan dari WA/browser dalam rentang tersebut digabung; dua panggilan bersamaan dapat dianggap satu indikasi.
 Lihat [petunjuk, privasi, dan batasan lengkap](extension/README.md).
 
 ## Fitur
@@ -86,7 +89,7 @@ Lihat [petunjuk, privasi, dan batasan lengkap](extension/README.md).
 - Saat pil dibuka, judul, artis, dan cover mengikuti sesi media yang dipilih Windows.
   Kontrol previous/play-pause/next tetap berada di baris atas, tanpa duplikasi di panel.
   Panel musik bergantian dengan panel notifikasi/panggilan; progres dan volume tersembunyi
-  saat notifikasi tampil. Status koneksi WhatsApp tersedia pada menu klik kanan.
+  saat notifikasi tampil. Status akses notifikasi Windows tersedia pada menu klik kanan.
   Pembacaan berjalan di latar belakang setiap beberapa detik. Pemutar harus menyediakan
   metadata melalui Windows System Media Transport Controls; cover bisa berupa artwork
   lagu atau thumbnail video dari pemutar. Jika gambar tidak tersedia/rusak, ikon musik
@@ -115,14 +118,14 @@ Lihat [petunjuk, privasi, dan batasan lengkap](extension/README.md).
 
 ## Batas versi awal
 
-Notifikasi baru WhatsApp dibaca lewat Windows UserNotificationListener secara asinkron.
+Notifikasi baru semua aplikasi dibaca lewat Windows UserNotificationListener secara asinkron.
 Status koneksi muncul saat panel dibuka. Pada laptop ini API sudah mengembalikan izin Allowed
 dan berhasil membaca notifikasi dari Windows PowerShell tanpa paket tambahan; ini tidak
 menjamin konfigurasi yang sama pada komputer lain. Izin tetap diperiksa saat membaca.
 
-Panel hanya menampilkan notifikasi dari paket resmi WhatsApp yang terpasang. Notifikasi yang
+Panel menampilkan notifikasi Windows dari semua aplikasi, termasuk browser. Browser dan situs harus mengizinkan notifikasi desktop; badge atau popup yang hanya ada di halaman tidak dapat dibaca melalui Windows. Nama sumber mengikuti identitas aplikasi yang diberikan Windows, sehingga situs dapat tampil sebagai nama browser. Tombol Tutup menutup panel notifikasi umum; tombol Buka WhatsApp tetap tersedia untuk WhatsApp Desktop. Notifikasi yang
 lebih lama daripada waktu aplikasi dimulai tidak ditampilkan ulang. Isi pesan tidak disimpan
-ke berkas atau dicetak ke log; teks di panel dihapus setelah 15 detik atau saat menekan Escape.
+ke berkas atau dicetak ke log; teks di panel dihapus setelah 15 detik atau saat menekan Escape. Cache pencocokan duplikat hanya berada di memori, maksimal 64 entri, dan dihapus setelah 15 detik.
 Pesan akan terlihat di layar, termasuk ketika layar dibagikan. Beberapa pesan dalam satu
 interval digabung dengan menampilkan yang terbaru saja. Notifikasi asli tidak dihapus.
 
@@ -143,7 +146,7 @@ dapat memerlukan pembaruan pendeteksi. Pesan yang datang selama panel panggilan 
 menggantikan panel dan tetap tersedia di WhatsApp/pusat notifikasi.
 
 Jika status akses gagal, periksa izin akses notifikasi Windows. Aplikasi mencoba lagi setiap
-30 detik tanpa mengubah izin sistem. Pastikan notifikasi WhatsApp aktif. Deteksi jendela
+30 detik tanpa mengubah izin sistem. Pastikan notifikasi aplikasi, browser, dan situs yang diinginkan aktif. Deteksi jendela
 panggilan berjalan terpisah dari izin toast dan tidak bergantung pada banner Windows.
 
 Belum ada dukungan banyak monitor atau installer.

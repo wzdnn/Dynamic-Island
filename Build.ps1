@@ -4,7 +4,7 @@ $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { throw '.NET Framework C# compiler tidak ditemukan.' }
 $outputFolder = Join-Path $PSScriptRoot 'dist'
 [void][IO.Directory]::CreateDirectory($outputFolder)
-$exe = Join-Path $outputFolder 'Dynamic-Island-v1.4.1-win-x64.exe'
+$exe = Join-Path $outputFolder 'Dynamic-Island-v1.5.0-win-x64.exe'
 $files = @('Island.ps1', 'Media.ps1', 'Notifications.ps1', 'MediaReader.cs', 'AppVolume.cs', 'WhatsAppCalls.cs', 'WebBridge.cs')
 $resources = @($files | ForEach-Object { "/resource:$PSScriptRoot\$_,$_" })
 $extensionFiles = @('manifest.json', 'page.js', 'content.js', 'background.js', 'popup.html', 'popup.css', 'popup.js', 'README.md')

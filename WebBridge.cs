@@ -26,12 +26,21 @@ public sealed class WebBridge : IDisposable
     private readonly Queue<WebNotice> pending = new Queue<WebNotice>();
     private volatile bool running = true;
     private readonly Thread worker;
+    private readonly string pipeName;
     private string lastKey;
     private DateTime lastReceived;
-    public static string PipeName { get { return "DynamicIsland.Web." + WindowsIdentity.GetCurrent().User.Value + "." + Process.GetCurrentProcess().SessionId; } }
+    public static string PipeName {
+        get {
+            string name = "DynamicIsland.Web." + WindowsIdentity.GetCurrent().User.Value + "." + Process.GetCurrentProcess().SessionId;
+            string testId = Environment.GetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE");
+            if (String.IsNullOrEmpty(testId)) return name;
+            return name + ".test." + Guid.Parse(testId).ToString("N");
+        }
+    }
 
     public WebBridge()
     {
+        pipeName = PipeName;
         worker = new Thread(Listen) { IsBackground = true };
         worker.Start();
     }
@@ -89,13 +98,19 @@ public sealed class WebBridge : IDisposable
         {
             try
             {
-                using (var pipe = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 8192, 8192, security))
+                using (var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 8192, 8192, security))
                 {
                     var connection = pipe.BeginWaitForConnection(null, null);
                     using (var wait = connection.AsyncWaitHandle)
                     {
                         while (running && !wait.WaitOne(250)) { }
-                        if (!running) return;
+                        if (!running) {
+                            // Finish cancellation before disposing the event used by the pending callback.
+                            pipe.Dispose();
+                            wait.WaitOne();
+                            try { pipe.EndWaitForConnection(connection); } catch (ObjectDisposedException) { } catch (IOException) { }
+                            return;
+                        }
                         pipe.EndWaitForConnection(connection);
                     }
                     var read = Task.Factory.StartNew(() => ReadFrame(pipe));

@@ -15,6 +15,8 @@ internal static class LauncherTests
     private static int Main(string[] args)
     {
         string root = Path.Combine(args[0], "launcher-test-" + Guid.NewGuid().ToString("N"));
+        string previousPipe = Environment.GetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE");
+        Environment.SetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE", Guid.NewGuid().ToString("N"));
         try
         {
             string payload = Path.Combine(root, "runtime with spaces");
@@ -59,9 +61,24 @@ internal static class LauncherTests
                 Check(bridge.TakeLatest() == null, "Ping displayed a notice");
                 string notice = "{\"kind\":\"call\",\"title\":\"Synthetic only\",\"body\":\"Test\"}";
                 WebBridge.Forward(notice);
-                Check(bridge.TakeLatest().Kind == "call", "Call forwarding failed");
+                var received = bridge.TakeLatest();
+                Check(received != null && received.Kind == "call", "Call forwarding failed");
                 WebBridge.Forward(notice);
                 Check(bridge.TakeLatest() == null, "Duplicate notice not suppressed");
+                string testPipe = Environment.GetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE");
+                try {
+                    Environment.SetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE", Guid.NewGuid().ToString("N"));
+                    using (var otherBridge = new WebBridge()) {
+                        WebBridge.Forward("{\"kind\":\"message\",\"title\":\"Other instance\",\"body\":\"Isolation test\"}");
+                        Check(bridge.TakeLatest() == null, "Other pipe leaked into test bridge");
+                        Environment.SetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE", testPipe);
+                        WebBridge.Forward("{\"kind\":\"message\",\"title\":\"Test instance\",\"body\":\"Isolation test\"}");
+                        received = bridge.TakeLatest();
+                        Check(received != null && received.Title == "Test instance", "Test pipe lost its message");
+                        received = otherBridge.TakeLatest();
+                        Check(received != null && received.Title == "Other instance" && otherBridge.TakeLatest() == null, "Independent pipe routing failed");
+                    }
+                } finally { Environment.SetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE", testPipe); }
                 var start = new ProcessStartInfo(args[1], WebBridge.ExtensionOrigin) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
                 using (var host = Process.Start(start))
                 {
@@ -69,14 +86,18 @@ internal static class LauncherTests
                     var response = Task.Factory.StartNew(() => WebBridge.ReadFrame(host.StandardOutput.BaseStream));
                     Check(response.Wait(5000) && response.Result == "{\"ok\":true}", "Native EXE stdio failed");
                     Check(host.WaitForExit(5000) && host.ExitCode == 0, "Native host did not exit");
-                    Check(bridge.TakeLatest().Title == "Native host test", "Native EXE did not forward");
+                    received = bridge.TakeLatest();
+                    Check(received != null && received.Title == "Native host test", "Native EXE did not forward");
                 }
             }
             Check(WebBridge.RunHost("chrome-extension://untrusted/") == 1, "Untrusted extension origin accepted");
-            Console.WriteLine("PASS: native framing, validation, pipe forwarding, duplicate suppression, EXE stdio and origin restriction.");
+            Console.WriteLine("PASS: native framing, validation, isolated concurrent pipes, duplicate suppression, EXE stdio and origin restriction.");
             Console.WriteLine("PASS: embedded payload, paths with spaces, preference migration and settings preservation.");
             return 0;
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally {
+            Environment.SetEnvironmentVariable("DYNAMIC_ISLAND_TEST_PIPE", previousPipe);
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
     }
 }

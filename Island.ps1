@@ -16,6 +16,8 @@ Add-Type -Path "$PSScriptRoot\AppVolume.cs"
 Add-Type -Path "$PSScriptRoot\WebBridge.cs" -ReferencedAssemblies System.Web.Extensions
 $script:webBridge = $null
 $script:noticeIsWeb = $false
+$script:recentNotices = @()
+$script:windowsNotificationsConnected = $false
 
 function Read-IslandTopmost([string]$path) {
     if (-not [IO.File]::Exists($path)) { return $true }
@@ -144,9 +146,9 @@ function Get-BatteryLabel {
      <TextBlock x:Name="NoticeKind" Foreground="#ADFF6B" FontSize="12"/>
      <TextBlock x:Name="NoticeTitle" Foreground="White" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
      <TextBlock x:Name="NoticeBody" Foreground="#CCCCD0" FontSize="13" TextWrapping="Wrap" MaxHeight="38"/>
-     <Button x:Name="OpenWhatsApp" Content="Buka WhatsApp" AutomationProperties.Name="Buka WhatsApp untuk pesan atau panggilan"/>
+     <Button x:Name="NoticeAction" Content="Buka WhatsApp" AutomationProperties.Name="Tindakan notifikasi"/>
     </StackPanel>
-    <TextBlock x:Name="NotificationStatus" Text="WhatsApp · Menghubungkan notifikasi…" Visibility="Collapsed"/>
+    <TextBlock x:Name="NotificationStatus" Text="Windows · Menghubungkan notifikasi…" Visibility="Collapsed"/>
     <StackPanel x:Name="MusicPanel">
     <Grid Margin="0,8,0,4">
      <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -430,7 +432,7 @@ function Update-CallPanel([IntPtr]$handle) {
     $window.FindName('NoticeKind').Text = 'WhatsApp · Jendela panggilan terdeteksi'
     $window.FindName('NoticeTitle').Text = 'Panggilan WhatsApp'
     $window.FindName('NoticeBody').Text = 'Buka WhatsApp untuk melihat atau mengelola panggilan.'
-    $window.FindName('OpenWhatsApp').Content = 'Buka panggilan'
+    $window.FindName('NoticeAction').Content = 'Buka panggilan'
     $notice.Visibility = 'Visible'
     $script:noticeUntil = [datetime]::MaxValue
     Set-Expanded $true
@@ -442,25 +444,62 @@ function Update-IslandTopmost {
 
 function Clear-Notice {
     $script:noticeIsWeb = $false
+    $script:noticeIsWhatsApp = $false
     $wasVisible = $notice.Visibility -eq 'Visible'
     $notice.Visibility = 'Collapsed'
     $window.FindName('MusicPanel').Visibility = 'Visible'
     $window.FindName('NoticeTitle').Text = ''
     $window.FindName('NoticeBody').Text = ''
-    $window.FindName('OpenWhatsApp').Content = 'Buka WhatsApp'
+    $window.FindName('NoticeAction').Content = 'Tutup'
     $script:noticeUntil = [datetime]::MinValue
     Update-IslandTopmost
     if ($wasVisible -and $script:expanded) { Set-Expanded $true }
 }
 
+function Test-DuplicateNotice($entry, [string]$source) {
+    $now = [datetime]::UtcNow
+    $script:recentNotices = @($script:recentNotices | Where-Object { ($now - $_.At).TotalSeconds -lt 15 })
+    # shortcut: match text for 15 seconds; use a shared event ID if Windows exposes one.
+    $title = ([string]$entry.Title).Trim()
+    $body = ([string]$entry.Body -replace '(?i)\s*·\s*(https?://)?web\.whatsapp\.com/?\s*$', '').Trim()
+    $key = ($title.Substring(0, [math]::Min(160, $title.Length)) + "`n" + $body.Substring(0, [math]::Min(1000, $body.Length))) -replace '\s+', ' '
+    $eligible = $source -eq 'Web' -or $entry.IsWhatsApp -or $entry.AppName -match '(?i)(WhatsApp|Chrome|Brave|Edge|Firefox)'
+    $call = $eligible -and (($source -eq 'Web' -and $entry.Kind -eq 'call') -or ($title + ' ' + $body) -match '(?i)(incoming (voice |video )?call|panggilan (suara |video )?masuk|calling you|sedang menelepon)')
+    $dialog = $source -eq 'Web' -and $entry.Kind -eq 'call' -and $entry.Body -eq 'Dialog panggilan masuk terlihat. Buka WhatsApp Web untuk menjawab.'
+    $match = $script:recentNotices | Where-Object {
+        $eligible -and $_.Eligible -and (($_.Source -ne $source -and $_.Key -ceq $key) -or ($call -and $_.Call -and ($dialog -or $_.Dialog)))
+    } | Select-Object -First 1
+    $script:recentNotices = @($script:recentNotices | Select-Object -Last 63) + @([pscustomobject]@{
+        At = $(if ($null -ne $match) { $match.At } else { $now }); Source = $source; Key = $key; Eligible = $eligible; Call = $call; Dialog = $dialog
+    })
+    return $null -ne $match
+}
+
 function Show-WebNotice($entry) {
     if ($null -eq $entry -or $script:callWindow -ne [IntPtr]::Zero) { return }
+    if (($script:windowsNotificationsConnected -or $null -ne $script:notificationTask) -and $entry.Kind -eq 'message' -and $entry.Title -eq 'WhatsApp Web' -and $entry.Body -eq 'Ada pesan belum dibaca baru. Buka WhatsApp Web untuk melihatnya.') { return }
+    if (Test-DuplicateNotice $entry 'Web') { return }
     Clear-Notice
     $script:noticeIsWeb = $true
     $window.FindName('NoticeKind').Text = if ($entry.Kind -eq 'call') { 'WhatsApp Web · Indikasi panggilan masuk' } else { 'WhatsApp Web · Notifikasi baru' }
     $window.FindName('NoticeTitle').Text = $entry.Title
     $window.FindName('NoticeBody').Text = $entry.Body
-    $window.FindName('OpenWhatsApp').Content = 'Buka WhatsApp Web'
+    $window.FindName('NoticeAction').Content = 'Buka WhatsApp Web'
+    $notice.Visibility = 'Visible'
+    $script:noticeUntil = (Get-Date).AddSeconds(15)
+    Set-Expanded $true
+}
+
+function Show-WindowsNotice($entry) {
+    if ($null -eq $entry -or $script:callWindow -ne [IntPtr]::Zero) { return }
+    if (Test-DuplicateNotice $entry 'Windows') { return }
+    Clear-Notice
+    $script:noticeIsWhatsApp = $entry.IsWhatsApp
+    $kind = if ($entry.IsCall) { 'Kemungkinan panggilan masuk' } else { 'Notifikasi baru' }
+    $window.FindName('NoticeKind').Text = "$($entry.AppName) · $kind"
+    $window.FindName('NoticeTitle').Text = $entry.Title
+    $window.FindName('NoticeBody').Text = $entry.Body
+    $window.FindName('NoticeAction').Content = if ($entry.IsWhatsApp) { 'Buka WhatsApp' } else { 'Tutup' }
     $notice.Visibility = 'Visible'
     $script:noticeUntil = (Get-Date).AddSeconds(15)
     Set-Expanded $true
@@ -485,7 +524,7 @@ function Update-Notifications {
         $current = @{}
         $newest = $null
         foreach ($item in $task.Result) {
-            $entry = Convert-WhatsAppNotification $item
+            $entry = Convert-WindowsNotification $item
             if ($null -eq $entry) { continue }
             $key = '{0}:{1}' -f $entry.Id, $entry.Created.UtcTicks
             $current[$key] = $true
@@ -494,19 +533,13 @@ function Update-Notifications {
             }
         }
         $script:seenNotifications = $current
-        $notificationStatus.Text = 'WhatsApp · Notifikasi terhubung'
-        if ($null -ne $newest -and $script:callWindow -eq [IntPtr]::Zero) {
-            Clear-Notice
-            $window.FindName('NoticeKind').Text = if ($newest.IsCall) { 'WhatsApp · Kemungkinan panggilan masuk' } else { 'WhatsApp · Notifikasi baru' }
-            $window.FindName('NoticeTitle').Text = $newest.Title
-            $window.FindName('NoticeBody').Text = $newest.Body
-            $notice.Visibility = 'Visible'
-            $script:noticeUntil = (Get-Date).AddSeconds(15)
-            Set-Expanded $true
-        }
+        $script:windowsNotificationsConnected = $true
+        $notificationStatus.Text = 'Windows · Notifikasi terhubung'
+        Show-WindowsNotice $newest
     } catch {
+        $script:windowsNotificationsConnected = $false
         if ($script:callWindow -eq [IntPtr]::Zero -and -not $script:noticeIsWeb) { Clear-Notice }
-        $notificationStatus.Text = 'WhatsApp · Akses notifikasi gagal. Periksa izin Windows.'
+        $notificationStatus.Text = 'Windows · Akses notifikasi gagal. Periksa izin Windows.'
         $script:notificationTask = $null
         $script:retryNotificationsAt = (Get-Date).AddSeconds(30)
     }
@@ -551,6 +584,7 @@ function Set-Expanded([bool]$value) {
     }
 }
 function Update-Island {
+    $script:recentNotices = @($script:recentNotices | Where-Object { ([datetime]::UtcNow - $_.At).TotalSeconds -lt 15 })
     $clock.Text = Get-Date -Format 'HH:mm'
     if ((Get-Date) -ge $script:nextBatteryRead) {
         $battery.Text = Get-BatteryLabel
@@ -581,15 +615,17 @@ $window.FindName('Toggle').Add_Click({ Set-Expanded (-not $script:expanded) })
 $window.FindName('CompactNext').Add_Click({ [IslandMedia]::Send(176) })
 $window.FindName('CompactPrevious').Add_Click({ [IslandMedia]::Send(177) })
 $window.FindName('CompactPlay').Add_Click({ [IslandMedia]::Send(179); $script:nextMediaRead = [datetime]::MinValue })
-$window.FindName('OpenWhatsApp').Add_Click({
+$window.FindName('NoticeAction').Add_Click({
     try {
         if ($script:callWindow -ne [IntPtr]::Zero) {
             if (-not [WhatsAppCalls]::Open($script:callWindow)) { throw 'Cannot open call window' }
         } elseif ($script:noticeIsWeb) {
             Start-Process 'https://web.whatsapp.com/'
             Clear-Notice
-        } else {
+        } elseif ($script:noticeIsWhatsApp) {
             Start-Process explorer.exe -ArgumentList 'shell:AppsFolder\5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App'
+            Clear-Notice
+        } else {
             Clear-Notice
         }
         Set-Expanded $false
@@ -610,7 +646,7 @@ $topmostItem.Add_Click({
 })
 [void]$menu.Items.Add($topmostItem)
 $webSetupItem = New-Object Windows.Controls.MenuItem
-$webSetupItem.Header = 'Siapkan ekstensi WhatsApp Web'
+$webSetupItem.Header = 'Siapkan ekstensi WhatsApp Web (opsional)'
 $webSetupItem.IsEnabled = -not [string]::IsNullOrEmpty($env:DYNAMIC_ISLAND_EXE)
 $webSetupItem.Add_Click({
     try { Start-Process -FilePath $env:DYNAMIC_ISLAND_EXE -ArgumentList '--setup-browser' -WindowStyle Hidden }
@@ -651,8 +687,65 @@ $window.Add_Closed({
 })
 Update-Island
 if ($SelfTest -or $IntegrationTest) {
+    $webDuplicate = [WebBridge]::Parse('{"kind":"message","title":"Example sender","body":"Hello"}')
+    $windowsDuplicate = [pscustomobject]@{ AppName='Google Chrome'; Title='Example sender'; Body='Hello · https://web.whatsapp.com/'; IsWhatsApp=$false; IsCall=$false }
+    foreach ($webFirst in @($true, $false)) {
+        $script:recentNotices = @()
+        if ($webFirst) { Show-WebNotice $webDuplicate } else { Show-WindowsNotice $windowsDuplicate }
+        $expiry = $script:noticeUntil
+        if ($webFirst) { Show-WindowsNotice $windowsDuplicate } else { Show-WebNotice $webDuplicate }
+        if ($script:noticeUntil -ne $expiry -or $script:noticeIsWeb -ne $webFirst) { throw 'Cross-source duplicate replaced or extended notice' }
+        Clear-Notice
+        if ($webFirst) { Show-WindowsNotice $windowsDuplicate } else { Show-WebNotice $webDuplicate }
+        if ($notice.Visibility -ne 'Collapsed') { throw 'Dismissed duplicate reopened' }
+        $script:recentNotices | ForEach-Object { $_.At = [datetime]::UtcNow.AddSeconds(-16) }
+        Update-Island
+        if ($script:recentNotices.Count -ne 0) { throw 'Dedup cache did not expire' }
+        Show-WebNotice $webDuplicate
+        if ($notice.Visibility -ne 'Visible') { throw 'New message after dedup expiry suppressed' }
+    }
+    $script:recentNotices = @()
+    if (Test-DuplicateNotice $webDuplicate 'Web') { throw 'First message suppressed' }
+    $different = [WebBridge]::Parse('{"kind":"message","title":"Other sender","body":"Hello"}')
+    if (Test-DuplicateNotice $different 'Web') { throw 'Different sender suppressed' }
+    if (Test-DuplicateNotice $webDuplicate 'Web') { throw 'Distinct same-source repeat suppressed' }
+    $windowsDuplicate.AppName = 'Unrelated app'
+    if (Test-DuplicateNotice $windowsDuplicate 'Windows') { throw 'Unrelated application suppressed' }
+    $windowsDuplicate.AppName = 'Google Chrome'
+    $windowsDuplicate.Body = 'Different message'
+    if (Test-DuplicateNotice $windowsDuplicate 'Windows') { throw 'Different message suppressed' }
+    $script:recentNotices = @()
+    $windowsDuplicate.Title = 'x' * 170
+    $windowsDuplicate.Body = 'y' * 1100
+    $longWebNotice = [pscustomobject]@{ Kind='message'; Title=('x' * 160); Body=('y' * 1000) }
+    if ((Test-DuplicateNotice $windowsDuplicate 'Windows') -or -not (Test-DuplicateNotice $longWebNotice 'Web')) { throw 'Extension truncation caused duplicate' }
+    $windowsDuplicate.Title = 'Example sender'
+    $dialogDuplicate = [WebBridge]::Parse('{"kind":"call","title":"WhatsApp Web","body":"Dialog panggilan masuk terlihat. Buka WhatsApp Web untuk menjawab."}')
+    $windowsDuplicate.Body = 'Incoming voice call'
+    foreach ($webFirst in @($true, $false)) {
+        $script:recentNotices = @()
+        $first = if ($webFirst) { Test-DuplicateNotice $dialogDuplicate 'Web' } else { Test-DuplicateNotice $windowsDuplicate 'Windows' }
+        $second = if ($webFirst) { Test-DuplicateNotice $windowsDuplicate 'Windows' } else { Test-DuplicateNotice $dialogDuplicate 'Web' }
+        if ($first -or -not $second) { throw 'Call dialog and toast not coalesced' }
+    }
+    Clear-Notice
+    $script:recentNotices = @()
+    $fallback = [WebBridge]::Parse('{"kind":"message","title":"WhatsApp Web","body":"Ada pesan belum dibaca baru. Buka WhatsApp Web untuk melihatnya."}')
+    $script:windowsNotificationsConnected = $true
+    Show-WebNotice $fallback
+    if ($notice.Visibility -ne 'Collapsed') { throw 'Unread fallback duplicated Windows notifications' }
+    $script:windowsNotificationsConnected = $false
+    $script:notificationTask = [pscustomobject]@{ IsCompleted=$false }
+    Show-WebNotice $fallback
+    if ($notice.Visibility -ne 'Collapsed') { throw 'Unread fallback raced initial Windows read' }
+    $script:notificationTask = $null
+    Show-WebNotice $fallback
+    if ($notice.Visibility -ne 'Visible') { throw 'Unread fallback unavailable without Windows access' }
+    Clear-Notice
+    $script:recentNotices = @()
+    Write-Output 'PASS: cross-source dedup in both orders, dismissal, expiry, distinct messages, call dialogs and unread fallback.'
     Show-WebNotice ([WebBridge]::Parse('{"kind":"call","title":"Test only","body":"Synthetic call indication"}'))
-    if (-not $script:noticeIsWeb -or $notice.Visibility -ne 'Visible' -or $window.FindName('OpenWhatsApp').Content -ne 'Buka WhatsApp Web') { throw 'Web call notice failed' }
+    if (-not $script:noticeIsWeb -or $notice.Visibility -ne 'Visible' -or $window.FindName('NoticeAction').Content -ne 'Buka WhatsApp Web') { throw 'Web call notice failed' }
     Clear-Notice
     if ($script:noticeIsWeb -or $window.FindName('NoticeBody').Text) { throw 'Web notice cleanup failed' }
     Set-Expanded $false
@@ -767,6 +860,16 @@ if ($SelfTest -or $IntegrationTest) {
     if ($titleTransform.HasAnimatedProperties) { throw 'Short title should stay still' }
     Set-Expanded $false
     Write-Output 'PASS: long title scroll, polling continuity, close reset and stationary short title.'
+    $testNotice = [pscustomobject]@{ AppName='Google Chrome'; Title='Example website'; Body='Example notification'; IsWhatsApp=$false; IsCall=$false }
+    Show-WindowsNotice $testNotice
+    if ($window.FindName('NoticeKind').Text -ne 'Google Chrome · Notifikasi baru' -or $window.FindName('NoticeTitle').Text -ne $testNotice.Title -or $window.FindName('NoticeAction').Content -ne 'Tutup' -or $script:noticeIsWhatsApp -or $script:noticeIsWeb) { throw 'Generic notification panel failed' }
+    $window.FindName('NoticeAction').RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Button]::ClickEvent)))
+    if ($notice.Visibility -ne 'Collapsed' -or $script:expanded) { throw 'Generic notification dismissal failed' }
+    $testNotice.AppName = 'WhatsApp'
+    $testNotice.IsWhatsApp = $true
+    $testNotice.IsCall = $true
+    Show-WindowsNotice $testNotice
+    if ($window.FindName('NoticeAction').Content -ne 'Buka WhatsApp' -or -not $script:noticeIsWhatsApp -or $window.FindName('NoticeKind').Text -ne 'WhatsApp · Kemungkinan panggilan masuk') { throw 'WhatsApp notification regression' }
     $notice.Visibility = 'Visible'
     $window.FindName('NoticeTitle').Text = 'Test only'
     $script:noticeUntil = (Get-Date).AddSeconds(-1)
@@ -775,6 +878,8 @@ if ($SelfTest -or $IntegrationTest) {
     if (-not [WhatsAppCalls]::Matches('Voice call', '5319275A.WhatsAppDesktop_cv1g1gvanyjgm')) { throw 'Call match failed' }
     if ([WhatsAppCalls]::Matches('Voice call', 'OtherApp') -or [WhatsAppCalls]::Matches('WhatsApp', '5319275A.WhatsAppDesktop_cv1g1gvanyjgm')) { throw 'Non-call window matched' }
     Update-CallPanel ([IntPtr]123)
+    Show-WindowsNotice $testNotice
+    if ($window.FindName('NoticeTitle').Text -ne 'Panggilan WhatsApp' -or $window.FindName('NoticeAction').Content -ne 'Buka panggilan') { throw 'Notification replaced active call' }
     Update-Island
     if ($notice.Visibility -ne 'Visible' -or $script:noticeUntil -ne [datetime]::MaxValue) { throw 'Call panel expired' }
     if ($window.FindName('MusicPanel').Visibility -ne 'Collapsed' -or $details.DesiredSize.Height + 48 -gt 240) { throw 'Call panel layout failed' }
@@ -862,10 +967,10 @@ if ($SelfTest -or $IntegrationTest) {
         $deadline = (Get-Date).AddSeconds(10)
         do {
             Update-Notifications
-            if ($notificationStatus.Text -eq 'WhatsApp · Notifikasi terhubung') { break }
+            if ($notificationStatus.Text -eq 'Windows · Notifikasi terhubung') { break }
             Start-Sleep -Milliseconds 100
         } while ((Get-Date) -lt $deadline)
-        if ($notificationStatus.Text -ne 'WhatsApp · Notifikasi terhubung') { throw $notificationStatus.Text }
+        if ($notificationStatus.Text -ne 'Windows · Notifikasi terhubung') { throw $notificationStatus.Text }
         Write-Output 'PASS: UI polling connected to Windows notification API.'
         $deadline = (Get-Date).AddSeconds(15)
         Update-Media
