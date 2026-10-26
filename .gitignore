@@ -5,3 +5,7 @@
 *.log
 *.tmp.ps1
 /panel-*-test.png
+/settings.local.json
+/settings.local.json.tmp
+/dist/
+/.tools/

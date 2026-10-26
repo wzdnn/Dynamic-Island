@@ -14,6 +14,29 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 Add-Type -Path "$PSScriptRoot\WhatsAppCalls.cs"
 Add-Type -Path "$PSScriptRoot\AppVolume.cs"
 
+function Read-IslandTopmost([string]$path) {
+    if (-not [IO.File]::Exists($path)) { return $true }
+    try {
+        $settings = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        if ($settings.AlwaysOnTop -isnot [bool]) { throw 'Invalid AlwaysOnTop value' }
+        return $settings.AlwaysOnTop
+    } catch {
+        Write-Warning 'Pengaturan Always on top tidak dapat dibaca; memakai default aktif.'
+        return $true
+    }
+}
+
+function Save-IslandTopmost([string]$path, [bool]$enabled) {
+    $temporaryPath = "$path.tmp"
+    try {
+        [IO.File]::WriteAllText($temporaryPath, (@{ AlwaysOnTop = $enabled } | ConvertTo-Json))
+        if ([IO.File]::Exists($path)) { [IO.File]::Replace($temporaryPath, $path, [NullString]::Value) }
+        else { [IO.File]::Move($temporaryPath, $path) }
+    } finally {
+        if ([IO.File]::Exists($temporaryPath)) { [IO.File]::Delete($temporaryPath) }
+    }
+}
+
 function Get-BatteryLabel {
     $power = [System.Windows.Forms.SystemInformation]::PowerStatus
     if (($power.BatteryChargeStatus -band 128) -ne 0) { return 'Tanpa baterai' }
@@ -160,6 +183,8 @@ function Get-BatteryLabel {
 </Window>
 '@
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $markup))
+$settingsPath = Join-Path $PSScriptRoot 'settings.local.json'
+if (-not ($SelfTest -or $IntegrationTest)) { $window.Topmost = Read-IslandTopmost $settingsPath }
 $pill = $window.FindName('Pill')
 $details = $window.FindName('Details')
 $battery = $window.FindName('Battery')
@@ -546,6 +571,18 @@ $window.FindName('OpenWhatsApp').Add_Click({
 })
 $window.Add_KeyDown({ if ($_.Key -eq 'Escape') { if ($script:callWindow -eq [IntPtr]::Zero) { Clear-Notice }; Set-Expanded $false } })
 $menu = New-Object Windows.Controls.ContextMenu
+$topmostItem = New-Object Windows.Controls.MenuItem
+$topmostItem.Header = 'Always on top'
+$topmostItem.IsCheckable = $true
+$topmostBinding = New-Object Windows.Data.Binding('Topmost')
+$topmostBinding.Source = $window
+$topmostBinding.Mode = [Windows.Data.BindingMode]::TwoWay
+[void]$topmostItem.SetBinding([Windows.Controls.MenuItem]::IsCheckedProperty, $topmostBinding)
+$topmostItem.Add_Click({
+    try { Save-IslandTopmost $settingsPath $topmostItem.IsChecked }
+    catch { [void][Windows.MessageBox]::Show($window, 'Pilihan berlaku sekarang, tetapi gagal disimpan. Pastikan folder aplikasi dapat ditulis.', 'Dynamic Island') }
+})
+[void]$menu.Items.Add($topmostItem)
 $statusItem = New-Object Windows.Controls.MenuItem
 $statusItem.IsEnabled = $false
 $statusBinding = New-Object Windows.Data.Binding('Text')
@@ -578,6 +615,28 @@ $window.Add_Closed({
 })
 Update-Island
 if ($SelfTest -or $IntegrationTest) {
+    $testSettingsPath = Join-Path $PSScriptRoot ('island-settings-test-' + [guid]::NewGuid() + '.json')
+    try {
+        if (-not (Read-IslandTopmost $testSettingsPath)) { throw 'Missing settings default failed' }
+        foreach ($enabled in @($false, $true, $false)) {
+            Save-IslandTopmost $testSettingsPath $enabled
+            if ((Read-IslandTopmost $testSettingsPath) -ne $enabled) { throw 'Always on top persistence failed' }
+        }
+        foreach ($invalid in @('{broken', '{"AlwaysOnTop":"false"}')) {
+            [IO.File]::WriteAllText($testSettingsPath, $invalid)
+            if (-not (Read-IslandTopmost $testSettingsPath)) { throw 'Invalid settings fallback failed' }
+        }
+    } finally { if ([IO.File]::Exists($testSettingsPath)) { [IO.File]::Delete($testSettingsPath) } }
+    Write-Output 'PASS: always on top persistence, overwrite and invalid settings fallback.'
+    if (-not $topmostItem.IsCheckable -or -not $topmostItem.IsChecked -or -not $window.Topmost) { throw 'Always on top default failed' }
+    $topmostItem.SetCurrentValue([Windows.Controls.MenuItem]::IsCheckedProperty, $false)
+    if ($window.Topmost) { throw 'Always on top disable failed' }
+    Set-Expanded $true
+    Set-Expanded $false
+    if ($window.Topmost -or $topmostItem.IsChecked) { throw 'Expand/collapse reset always on top' }
+    $topmostItem.SetCurrentValue([Windows.Controls.MenuItem]::IsCheckedProperty, $true)
+    if (-not $window.Topmost) { throw 'Always on top enable failed' }
+    Write-Output 'PASS: always on top default, disable, expand/collapse and enable.'
     if (-not $battery.Text -or $clock.Text -notmatch '^\d{2}:\d{2}$') { throw 'Status initialization failed' }
     Set-Expanded $true
     if ($details.Visibility -ne 'Visible') { throw 'Expand failed' }

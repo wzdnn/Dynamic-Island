@@ -1,11 +1,21 @@
 # Dynamic Island for Windows
 
-Prototipe desktop dengan tampilan terinspirasi iPhone. Jalankan `Start Island.vbs`.
+Prototipe desktop dengan tampilan terinspirasi iPhone. Jalankan `Dynamic Island.exe` dari paket release.
 Tidak membutuhkan paket tambahan, administrator, atau perubahan execution policy permanen.
 Hanya satu instance berjalan per akun/sesi Windows. Membuka launcher lagi langsung keluar
 tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses berakhir.
 
 ## Menjalankan
+
+Untuk versi portable Windows x64, unduh `Dynamic-Island-v1.2.0-win-x64.zip` dari
+[GitHub Releases](https://github.com/wzdnn/Dynamic-Island/releases/latest), ekstrak **seluruh isi ZIP**
+ke folder yang dapat ditulis, lalu klik dua kali **Dynamic Island.exe**. File pendukung harus
+tetap bersama EXE. Launcher memakai Windows PowerShell 5.1 dan WPF bawaan Windows,
+tanpa jendela terminal atau kebutuhan Windows Script Host. EXE belum ditandatangani digital.
+Saat upgrade, tutup aplikasi dan ekstrak paket baru ke folder yang sama agar
+`settings.local.json` tetap dipakai; file pengaturan pribadi tidak disertakan dalam release.
+
+Untuk menjalankan dari source:
 
 1. Unduh ZIP repository ini atau clone dengan Git, lalu ekstrak ke folder tetap.
 2. Klik dua kali `Start Island.vbs` untuk menjalankan tanpa jendela terminal. `Start Island.cmd`
@@ -20,7 +30,7 @@ Tidak diperlukan instalasi .NET SDK atau paket tambahan.
 
 ## Startup opsional
 
-Buat shortcut ke `Start Island.vbs`, lalu letakkan shortcut tersebut dalam folder Startup
+Buat shortcut ke `Dynamic Island.exe` (atau `Start Island.vbs` untuk source), lalu letakkan shortcut tersebut dalam folder Startup
 pengguna (buka `shell:startup` lewat Run). Aplikasi kemudian berjalan setelah login Windows.
 Jangan memindahkan folder proyek tanpa memperbarui shortcut. Hapus shortcut untuk
 menonaktifkan startup; tindakan ini tidak menghapus aplikasi. Shortcut dan pengaturan
@@ -29,6 +39,12 @@ Windows lokal tidak disertakan dalam repository.
 ## Fitur
 
 - Pil hitam di tengah atas area kerja monitor utama, di atas jendela biasa.
+- Klik kanan pil → **Always on top** untuk mencentang/menghapus centang agar panel selalu
+  di atas atau dapat tertutup jendela lain. Perubahan langsung berlaku dan disimpan di
+  `settings.local.json` dalam folder aplikasi, termasuk setelah restart. Default aktif
+  jika belum ada pengaturan; folder aplikasi harus dapat ditulis untuk menyimpan pilihan.
+  Jika tertutup, minimalkan jendela yang menutupinya
+  untuk mengakses pil lagi.
 - Klik untuk membuka kontrol media; Escape untuk mengecilkan.
 - Buka/tutup memakai transisi tinggi dan fade isi panel; klik cepat melanjutkan dari
   posisi animasi saat itu. Jika animasi Windows dimatikan, panel berubah langsung.
@@ -108,6 +124,11 @@ Belum ada dukungan banyak monitor atau installer.
 Panel dapat menutupi bagian atas aplikasi; keluar melalui menu jika mengganggu.
 
 ## Pemeriksaan
+
+Build paket portable dengan `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1`.
+Build memakai compiler .NET Framework bawaan Windows x64, menjalankan SelfTest melalui EXE,
+dan menghasilkan ZIP beserta checksum SHA-256 di `dist`. Tidak membutuhkan .NET SDK.
+Untuk memeriksa paket secara mandiri, jalankan EXE dengan argumen `--self-test` dan periksa exit code (0 = lolos).
 
 Pembaca media memakai ulang satu runspace dan session manager. Cover disimpan di memori
 per lagu; perubahan lagu memicu pembacaan baru, dengan pemeriksaan ulang tiap 30 detik
