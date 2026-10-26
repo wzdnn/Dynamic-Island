@@ -1,4 +1,4 @@
-﻿param([switch]$SelfTest, [switch]$IntegrationTest)
+﻿param([switch]$SelfTest, [switch]$IntegrationTest, [string]$SettingsPath = "$PSScriptRoot\settings.local.json")
 $ErrorActionPreference = 'Stop'
 $instanceMutex = $null
 $ownsMutex = $false
@@ -183,7 +183,6 @@ function Get-BatteryLabel {
 </Window>
 '@
 $window = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $markup))
-$settingsPath = Join-Path $PSScriptRoot 'settings.local.json'
 if (-not ($SelfTest -or $IntegrationTest)) { $window.Topmost = Read-IslandTopmost $settingsPath }
 $pill = $window.FindName('Pill')
 $details = $window.FindName('Details')
@@ -580,7 +579,7 @@ $topmostBinding.Mode = [Windows.Data.BindingMode]::TwoWay
 [void]$topmostItem.SetBinding([Windows.Controls.MenuItem]::IsCheckedProperty, $topmostBinding)
 $topmostItem.Add_Click({
     try { Save-IslandTopmost $settingsPath $topmostItem.IsChecked }
-    catch { [void][Windows.MessageBox]::Show($window, 'Pilihan berlaku sekarang, tetapi gagal disimpan. Pastikan folder aplikasi dapat ditulis.', 'Dynamic Island') }
+    catch { [void][Windows.MessageBox]::Show($window, 'Pilihan berlaku sekarang, tetapi gagal disimpan. Pastikan folder pengaturan dapat ditulis.', 'Dynamic Island') }
 })
 [void]$menu.Items.Add($topmostItem)
 $statusItem = New-Object Windows.Controls.MenuItem

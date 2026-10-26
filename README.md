@@ -1,19 +1,25 @@
 # Dynamic Island for Windows
 
-Prototipe desktop dengan tampilan terinspirasi iPhone. Jalankan `Dynamic Island.exe` dari paket release.
+Prototipe desktop dengan tampilan terinspirasi iPhone. Unduh dan jalankan satu EXE dari release.
 Tidak membutuhkan paket tambahan, administrator, atau perubahan execution policy permanen.
 Hanya satu instance berjalan per akun/sesi Windows. Membuka launcher lagi langsung keluar
 tanpa membuat panel kedua. Pengaman dilepas saat aplikasi ditutup atau proses berakhir.
 
 ## Menjalankan
 
-Untuk versi portable Windows x64, unduh `Dynamic-Island-v1.2.0-win-x64.zip` dari
-[GitHub Releases](https://github.com/wzdnn/Dynamic-Island/releases/latest), ekstrak **seluruh isi ZIP**
-ke folder yang dapat ditulis, lalu klik dua kali **Dynamic Island.exe**. File pendukung harus
-tetap bersama EXE. Launcher memakai Windows PowerShell 5.1 dan WPF bawaan Windows,
-tanpa jendela terminal atau kebutuhan Windows Script Host. EXE belum ditandatangani digital.
-Saat upgrade, tutup aplikasi dan ekstrak paket baru ke folder yang sama agar
-`settings.local.json` tetap dipakai; file pengaturan pribadi tidak disertakan dalam release.
+Untuk Windows x64, unduh **Dynamic-Island-v1.3.0-win-x64.exe** dari
+[GitHub Releases](https://github.com/wzdnn/Dynamic-Island/releases/latest), lalu klik dua kali.
+Tidak perlu ZIP, instalasi, atau file pendukung di sebelah EXE. Launcher memakai
+Windows PowerShell 5.1 dan WPF bawaan Windows tanpa jendela terminal atau Windows Script Host.
+EXE belum ditandatangani digital.
+
+File internal dibawa di dalam EXE dan disiapkan otomatis di
+`%LOCALAPPDATA%\DynamicIsland\runtime` selama aplikasi berjalan, lalu dibersihkan saat keluar normal.
+Pengaturan disimpan di `%LOCALAPPDATA%\DynamicIsland\settings.local.json`, terpisah dari EXE,
+sehingga memindahkan EXE atau mengganti versi tidak mereset pilihan.
+Saat upgrade, tutup versi lama lalu jalankan EXE baru. Untuk membawa pengaturan v1.2.0/source,
+jalankan EXE baru sekali dari folder lama yang berisi `settings.local.json`; pengaturan lama
+disalin hanya jika belum ada pengaturan pengguna. Setelah itu EXE boleh dipindahkan sendiri.
 
 Untuk menjalankan dari source:
 
@@ -30,7 +36,7 @@ Tidak diperlukan instalasi .NET SDK atau paket tambahan.
 
 ## Startup opsional
 
-Buat shortcut ke `Dynamic Island.exe` (atau `Start Island.vbs` untuk source), lalu letakkan shortcut tersebut dalam folder Startup
+Buat shortcut ke EXE yang diunduh (atau `Start Island.vbs` untuk source), lalu letakkan shortcut tersebut dalam folder Startup
 pengguna (buka `shell:startup` lewat Run). Aplikasi kemudian berjalan setelah login Windows.
 Jangan memindahkan folder proyek tanpa memperbarui shortcut. Hapus shortcut untuk
 menonaktifkan startup; tindakan ini tidak menghapus aplikasi. Shortcut dan pengaturan
@@ -41,8 +47,9 @@ Windows lokal tidak disertakan dalam repository.
 - Pil hitam di tengah atas area kerja monitor utama, di atas jendela biasa.
 - Klik kanan pil → **Always on top** untuk mencentang/menghapus centang agar panel selalu
   di atas atau dapat tertutup jendela lain. Perubahan langsung berlaku dan disimpan di
-  `settings.local.json` dalam folder aplikasi, termasuk setelah restart. Default aktif
-  jika belum ada pengaturan; folder aplikasi harus dapat ditulis untuk menyimpan pilihan.
+  `%LOCALAPPDATA%\DynamicIsland\settings.local.json` untuk EXE, atau `settings.local.json`
+  dalam folder source jika menjalankan skrip langsung, termasuk setelah restart. Default aktif
+  jika belum ada pengaturan; folder pengaturan harus dapat ditulis.
   Jika tertutup, minimalkan jendela yang menutupinya
   untuk mengakses pil lagi.
 - Klik untuk membuka kontrol media; Escape untuk mengecilkan.
@@ -125,10 +132,11 @@ Panel dapat menutupi bagian atas aplikasi; keluar melalui menu jika mengganggu.
 
 ## Pemeriksaan
 
-Build paket portable dengan `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1`.
-Build memakai compiler .NET Framework bawaan Windows x64, menjalankan SelfTest melalui EXE,
-dan menghasilkan ZIP beserta checksum SHA-256 di `dist`. Tidak membutuhkan .NET SDK.
-Untuk memeriksa paket secara mandiri, jalankan EXE dengan argumen `--self-test` dan periksa exit code (0 = lolos).
+Build EXE tunggal dengan `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1`.
+Build memakai compiler .NET Framework bawaan Windows x64, menguji ekstraksi resource dan migrasi
+pengaturan, menjalankan SelfTest melalui EXE, dan menghasilkan EXE beserta checksum SHA-256
+di `dist`. Tidak membutuhkan .NET SDK. Hanya EXE yang perlu diunduh untuk menjalankan aplikasi.
+Untuk memeriksa EXE secara mandiri, jalankan dengan argumen `--self-test` dan periksa exit code (0 = lolos).
 
 Pembaca media memakai ulang satu runspace dan session manager. Cover disimpan di memori
 per lagu; perubahan lagu memicu pembacaan baru, dengan pemeriksaan ulang tiap 30 detik
